@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Poisson &amp; Kelly Soccer Betting Engine</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel-border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --away-blue: #38bdf8;
+      --purple: #a78bfa;
+      --gold: #facc15;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 1.5rem 2rem;
+    }
+
+    .container {
+      max-width: 1580px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--panel-border);
+      margin-bottom: 1.5rem;
+    }
+
+    .title-group h1 {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .title-group p {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 0.25rem;
+    }
+
+    .btn {
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 0.55rem 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      transition: background-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn-primary {
+      background-color: var(--accent);
+      color: #06281e;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+      color: #ffffff;
+    }
+
+    .btn-secondary {
+      background-color: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .btn-secondary.active-tab {
+      background-color: var(--accent);
+      color: #06281e;
+      border-color: var(--accent);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      width: 15px;
+      height: 15px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      display: none;
+      animation: spin 0.75s linear infinite;
+    }
+
+    .loading .spinner {
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .banner {
+      padding: 0.85rem 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      display: none;
+      border: 1px solid transparent;
+    }
+
+    .banner.success {
+      display: block;
+      background-color: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    .banner.error {
+      display: block;
+      background-color: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+
+    /* Bankroll & Kelly Settings Bar */
+    .bankroll-bar {
+      background-color: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .bankroll-inputs {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .input-group label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .input-group input,
+    .input-group select {
+      background-color: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.4rem;
+      padding: 0.45rem 0.7rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    /* Top 3 Recommended Bets Panel */
+    .top3-bets-panel {
+      margin-bottom: 2rem;
+    }
+
+    .top3-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.15rem;
+    }
+
+    @media (max-width: 1100px) {
+      .top3-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .bet-pick-card {
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.92));
+      border: 1px solid var(--panel-border);
+      border-radius: 0.75rem;
+      padding: 1.2rem;
+      position: relative;
+    }
+
+    .bet-pick-card.rank-1 {
+      border-top: 4px solid #10b981;
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.1);
+    }
+
+    .bet-pick-card.rank-2 {
+      border-top: 4px solid #38bdf8;
+    }
+
+    .bet-pick-card.rank-3 {
+      border-top: 4px solid #f59e0b;
+    }
+
+    .pick-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.65rem;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pick-rank-badge {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.22rem 0.6rem;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+    }
+
+    .rank-1 .pick-rank-badge {
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+
+    .rank-2 .pick-rank-badge {
+      background-color: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+    }
+
+    .rank-3 .pick-rank-badge {
+      background-color: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+    }
+
+    .league-pill {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.18rem 0.5rem;
+      border-radius: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .league-pill.E0 {
+      background-color: rgba(167, 139, 250, 0.2);
+      color: #c4b5fd;
+    }
+
+    .league-pill.SP1 {
+      background-color: rgba(251, 191, 36, 0.2);
+      color: #fde047;
+    }
+
+    .league-pill.I1 {
+      background-color: rgba(56, 189, 248, 0.2);
+      color: #7dd3fc;
+    }
+
+    .pick-matchup {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .pick-market {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #6ee7b7;
+      margin-bottom: 0.85rem;
+    }
+
+    .pick-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 0.85rem;
+      font-size: 0.82rem;
+    }
+
+    .pick-metric-box {
+      background-color: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 0.45rem;
+      padding: 0.45rem 0.6rem;
+    }
+
+    .pick-metric-box span.lbl {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .pick-metric-box span.val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .pick-stake-bar {
+      background-color: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 0.5rem;
+      padding: 0.65rem 0.8rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .pick-stake-bar .stake-lbl {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #a7f3d0;
+    }
+
+    .pick-stake-bar .stake-amt {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #34d399;
+    }
+
+    /* Round Matchup Cards */
+    .round-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .match-card {
+      background-color: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.75rem;
+      padding: 1rem 1.15rem;
+    }
+
+    .match-card.top-ranked {
+      border-color: rgba(16, 185, 129, 0.55);
+    }
+
+    .match-top-row {
+      display: grid;
+      grid-template-columns: 44px minmax(240px, 1.15fr) minmax(275px, 1.35fr) minmax(320px, 1.55fr) minmax(210px, 1fr) minmax(210px, 1fr) auto;
+      gap: 0.85rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 1440px) {
+      .match-top-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .match-num-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+
+    .match-num {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--panel-border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .rank-pill {
+      font-size: 0.66rem;
+      font-weight: 700;
+      padding: 0.15rem 0.38rem;
+      border-radius: 0.25rem;
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      white-space: nowrap;
+    }
+
+    .team-selectors {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+
+    .league-select-row {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .team-select-row {
+      display: grid;
+      grid-template-columns: 48px 1fr 54px;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .venue-tag {
+      font-size: 0.66rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.2rem 0.35rem;
+      border-radius: 0.25rem;
+      text-align: center;
+    }
+
+    .venue-tag.lg {
+      background-color: rgba(167, 139, 250, 0.15);
+      color: #c4b5fd;
+    }
+
+    .venue-tag.home {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+
+    .venue-tag.away {
+      background-color: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+    }
+
+    .team-selectors select {
+      background-color: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.4rem;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      width: 100%;
+    }
+
+    .xg-badge {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-align: right;
+      color: #e2e8f0;
+    }
+
+    .market-group {
+      background-color: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+      border-radius: 0.55rem;
+      padding: 0.55rem 0.65rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .market-group-title {
+      font-size: 0.66rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .pills-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.35rem;
+    }
+
+    .pills-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.35rem;
+    }
+
+    .pills-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.35rem;
+    }
+
+    .stat-box {
+      background-color: rgba(30, 41, 59, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 0.4rem;
+      padding: 0.32rem 0.35rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+    }
+
+    .stat-box.positive-ev {
+      border-color: rgba(16, 185, 129, 0.55);
+      background-color: rgba(16, 185, 129, 0.08);
+    }
+
+    .stat-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      font-weight: 600;
+      display: block;
+    }
+
+    .stat-prob {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: block;
+    }
+
+    .stat-odds {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      color: #cbd5e1;
+      display: block;
+    }
+
+    .bookie-input {
+      width: 100%;
+      margin-top: 0.2rem;
+      background-color: var(--bg);
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 0.28rem;
+      padding: 0.2rem 0.25rem;
+      font-size: 0.74rem;
+      text-align: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .bookie-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .ev-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.64rem;
+      font-weight: 700;
+      margin-top: 0.1rem;
+    }
+
+    .ev-tag.pos { color: #34d399; }
+    .ev-tag.neg { color: #f87171; }
+
+    .c-home { color: #34d399; }
+    .c-draw { color: #fbbf24; }
+    .c-away { color: #38bdf8; }
+    .c-mkt  { color: #c4b5fd; }
+    .c-scr  { color: #f9a8d4; }
+    .c-ah   { color: #fde047; }
+
+    .match-actions {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+
+    .btn-xs {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.34rem 0.55rem;
+      border-radius: 0.35rem;
+      border: 1px solid var(--panel-border);
+      background-color: rgba(15, 23, 42, 0.75);
+      color: var(--text);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-xs:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-xs.danger {
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+
+    .matrix-drawer {
+      display: none;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--panel-border);
+      overflow-x: auto;
+    }
+
+    .matrix-drawer.open {
+      display: block;
+    }
+
+    .drawer-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .drawer-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .matrix-table th,
+    .matrix-table td {
+      border: 1px solid rgba(51, 65, 85, 0.55);
+      padding: 0.4rem 0.35rem;
+      text-align: center;
+    }
+
+    .matrix-table th {
+      background-color: rgba(15, 23, 42, 0.85);
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .matrix-cell-score {
+      display: block;
+      font-size: 0.62rem;
+      color: var(--muted);
+    }
+
+    .matrix-cell-prob {
+      font-weight: 600;
+      font-size: 0.76rem;
+    }
+
+    /* League Tables */
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .table-card {
+      background-color: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.75rem;
+      overflow-x: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .table-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .table-subtitle {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    table.stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    table.stats-table th,
+    table.stats-table td {
+      padding: 0.62rem 0.85rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    table.stats-table th {
+      background-color: rgba(15, 23, 42, 0.55);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    table.stats-table th.num,
+    table.stats-table td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    td.strength {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #e2e8f0;
+    }
+
+    table.stats-table tbody tr:hover {
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    table.stats-table tfoot tr {
+      background-color: rgba(15, 23, 42, 0.75);
+      font-weight: 600;
+    }
+
+    table.stats-table tfoot tr.total-row td {
+      border-top: 2px solid var(--panel-border);
+      color: var(--muted);
+    }
+
+    table.stats-table tfoot tr.avg-row td {
+      color: #34d399;
+      border-bottom: none;
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
+    }
+
+    .empty-msg {
+      padding: 1.25rem;
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.9rem;
+      background-color: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title-group">
+        <h1>Poisson &amp; Kelly Multi-League Soccer Betting</h1>
+        <p>Premier League (E0) • La Liga (SP1) • Serie A (I1) — Poisson, Asian Handicap &amp; Kelly Criterion</p>
+      </div>
+      <button id="update-btn" class="btn btn-primary" type="button">
+        <span class="spinner"></span>
+        <span id="btn-text">Update Data</span>
+      </button>
+    </header>
+
+    <div id="status-banner" class="banner"></div>
+
+    <!-- Bankroll & Kelly Settings -->
+    <div class="bankroll-bar">
+      <div class="bankroll-inputs">
+        <div class="input-group">
+          <label for="bankroll-input">Bankroll ($)</label>
+          <input id="bankroll-input" type="number" min="10" step="50" value="1000" style="width: 115px;" />
+        </div>
+        <div class="input-group">
+          <label for="kelly-select">Kelly Fraction</label>
+          <select id="kelly-select">
+            <option value="0.25" selected>0.25x (Quarter Kelly)</option>
+            <option value="0.50">0.50x (Half Kelly)</option>
+            <option value="1.00">1.00x (Full Kelly)</option>
+          </select>
+        </div>
+      </div>
+      <div class="toolbar-actions">
+        <button id="sample-odds-btn" class="btn btn-secondary" type="button">Fill Sample Bookie Odds</button>
+        <button id="clear-odds-btn" class="btn btn-secondary" type="button">Clear Odds</button>
+      </div>
+    </div>
+
+    <!-- Top 3 Recommended Matchups to Bet On -->
+    <div class="top3-bets-panel">
+      <div class="section-header">
+        <h2 class="section-title">Top 3 Ranked Matchups to Bet On Across Selected Leagues (Kelly &amp; Edge Analysis)</h2>
+      </div>
+      <div id="top3-bets-container"></div>
+    </div>
+
+    <!-- Round Matchups -->
+    <div class="section-header">
+      <h2 class="section-title">Round Matchups, Market Odds &amp; Asian Handicap (<span id="matchup-count-label">0</span> / 10)</h2>
+      <div class="toolbar-actions">
+        <button id="add-e0-btn" class="btn btn-secondary" type="button">+ Premier League</button>
+        <button id="add-sp1-btn" class="btn btn-secondary" type="button">+ La Liga</button>
+        <button id="add-i1-btn" class="btn btn-secondary" type="button">+ Serie A</button>
+        <button id="load-e0-round-btn" class="btn btn-secondary" type="button">10x E0</button>
+        <button id="load-sp1-round-btn" class="btn btn-secondary" type="button">10x SP1</button>
+        <button id="load-i1-round-btn" class="btn btn-secondary" type="button">10x I1</button>
+        <button id="load-mixed-round-btn" class="btn btn-secondary" type="button">Mixed Round (E0/SP1/I1)</button>
+      </div>
+    </div>
+
+    <div id="round-container" class="round-list"></div>
+
+    <!-- League Team Data Tables with League Switcher Tabs -->
+    <div class="section-header" style="margin-top: 2rem;">
+      <h2 class="section-title">Current League Team Data (Last 15 Home &amp; Last 15 Away Matches — Time-Decay Weighted)</h2>
+      <div class="toolbar-actions" id="league-table-tabs">
+        <button type="button" class="btn btn-secondary active-tab" data-lg="E0">Premier League (E0)</button>
+        <button type="button" class="btn btn-secondary" data-lg="SP1">La Liga (SP1)</button>
+        <button type="button" class="btn btn-secondary" data-lg="I1">Serie A (I1)</button>
+      </div>
+    </div>
+
+    <div class="tables-grid">
+      <div class="table-card">
+        <div class="table-header">
+          <h3 id="home-table-title">Home Matches</h3>
+          <span class="table-subtitle" id="home-count-label"></span>
+        </div>
+        <div id="home-table-wrapper"></div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <h3 id="away-table-title">Away Matches</h3>
+          <span class="table-subtitle" id="away-count-label"></span>
+        </div>
+        <div id="away-table-wrapper"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MAX_MATCHUPS = 10;
+    const LEAGUE_LABELS = {
+      E0: "Premier League",
+      SP1: "La Liga",
+      I1: "Serie A",
+    };
+
+    const updateBtn = document.getElementById("update-btn");
+    const btnText = document.getElementById("btn-text");
+    const bankrollInput = document.getElementById("bankroll-input");
+    const kellySelect = document.getElementById("kelly-select");
+    const sampleOddsBtn = document.getElementById("sample-odds-btn");
+    const clearOddsBtn = document.getElementById("clear-odds-btn");
+    const top3BetsContainer = document.getElementById("top3-bets-container");
+
+    const addE0Btn = document.getElementById("add-e0-btn");
+    const addSp1Btn = document.getElementById("add-sp1-btn");
+    const addI1Btn = document.getElementById("add-i1-btn");
+    const loadE0RoundBtn = document.getElementById("load-e0-round-btn");
+    const loadSp1RoundBtn = document.getElementById("load-sp1-round-btn");
+    const loadI1RoundBtn = document.getElementById("load-i1-round-btn");
+    const loadMixedRoundBtn = document.getElementById("load-mixed-round-btn");
+
+    const matchupCountLabel = document.getElementById("matchup-count-label");
+    const roundContainer = document.getElementById("round-container");
+    const statusBanner = document.getElementById("status-banner");
+
+    const leagueTableTabs = document.getElementById("league-table-tabs");
+    const homeTableTitle = document.getElementById("home-table-title");
+    const awayTableTitle = document.getElementById("away-table-title");
+    const homeTableWrapper = document.getElementById("home-table-wrapper");
+    const awayTableWrapper = document.getElementById("away-table-wrapper");
+    const homeCountLabel = document.getElementById("home-count-label");
+    const awayCountLabel = document.getElementById("away-count-label");
+
+    let allLeaguesStats = null; // { leagues: { E0: {...}, SP1: {...}, I1: {...} } }
+    let activeTableLeague = "E0";
+    let lastRoundResults = [];
+    let matchupsState = []; // Array of { league_code, home_team, away_team, market_odds: {}, openMatrix: false }
+
+    const STORAGE_KEY = "poisson_kelly_multileague_state_v2";
+
+    function getTeamsForLeague(lgCode) {
+      if (!allLeaguesStats || !allLeaguesStats.leagues) return [];
+      const lg = allLeaguesStats.leagues[lgCode];
+      return (lg && lg.teams) || [];
+    }
+
+    function saveStateToStorage() {
+      try {
+        const payload = {
+          bankroll: bankrollInput.value,
+          kellyMultiplier: kellySelect.value,
+          activeTableLeague: activeTableLeague,
+          matchupsState: matchupsState,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (e) {
+        // Ignore storage errors
+      }
+    }
+
+    function loadStateFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (parsed.bankroll) bankrollInput.value = parsed.bankroll;
+        if (parsed.kellyMultiplier) kellySelect.value = parsed.kellyMultiplier;
+        if (parsed.activeTableLeague && LEAGUE_LABELS[parsed.activeTableLeague]) {
+          activeTableLeague = parsed.activeTableLeague;
+        }
+        if (Array.isArray(parsed.matchupsState) && parsed.matchupsState.length > 0) {
+          const valid = parsed.matchupsState.filter((m) => {
+            const lg = m.league_code || "E0";
+            const tSet = new Set(getTeamsForLeague(lg));
+            return tSet.has(m.home_team) && tSet.has(m.away_team);
+          });
+          if (valid.length > 0) {
+            matchupsState = valid.slice(0, MAX_MATCHUPS).map((m) => ({
+              league_code: m.league_code || "E0",
+              home_team: m.home_team,
+              away_team: m.away_team,
+              market_odds: m.market_odds || {},
+              openMatrix: Boolean(m.openMatrix),
+            }));
+            return true;
+          }
+        }
+      } catch (e) {
+        return false;
+      }
+      return false;
+    }
+
+    function populateSingleLeagueRound(lgCode) {
+      const teams = getTeamsForLeague(lgCode);
+      if (teams.length < 2) return;
+      matchupsState = [];
+      for (let i = 0; i < Math.min(MAX_MATCHUPS, Math.floor(teams.length / 2)); i++) {
+        matchupsState.push({
+          league_code: lgCode,
+          home_team: teams[i * 2],
+          away_team: teams[i * 2 + 1],
+          market_odds: {},
+          openMatrix: false,
+        });
+      }
+    }
+
+    function populateMixedRound() {
+      const e0 = getTeamsForLeague("E0");
+      const sp1 = getTeamsForLeague("SP1");
+      const i1 = getTeamsForLeague("I1");
+      matchupsState = [];
+
+      const plan = [
+        { lg: "E0", list: e0, pairIdx: 0 },
+        { lg: "E0", list: e0, pairIdx: 1 },
+        { lg: "E0", list: e0, pairIdx: 2 },
+        { lg: "E0", list: e0, pairIdx: 3 },
+        { lg: "SP1", list: sp1, pairIdx: 0 },
+        { lg: "SP1", list: sp1, pairIdx: 1 },
+        { lg: "SP1", list: sp1, pairIdx: 2 },
+        { lg: "I1", list: i1, pairIdx: 0 },
+        { lg: "I1", list: i1, pairIdx: 1 },
+        { lg: "I1", list: i1, pairIdx: 2 },
+      ];
+
+      plan.forEach((item) => {
+        const h = item.list[item.pairIdx * 2];
+        const a = item.list[item.pairIdx * 2 + 1];
+        if (h && a) {
+          matchupsState.push({
+            league_code: item.lg,
+            home_team: h,
+            away_team: a,
+            market_odds: {},
+            openMatrix: false,
+          });
+        }
+      });
+    }
+
+    function buildDrawerHTML(homeTeam, awayTeam, poisson) {
+      const maxGoals = poisson.max_goals || 7;
+      const homeProbs = poisson.home_goal_probs || [];
+      const awayProbs = poisson.away_goal_probs || [];
+      const matrix = poisson.matrix || [];
+      const ahTable = (poisson.asian_handicap && poisson.asian_handicap.table) || [];
+
+      let maxCellProb = 0;
+      for (let h = 0; h <= maxGoals; h++) {
+        for (let a = 0; a <= maxGoals; a++) {
+          if (matrix[h] && matrix[h][a] > maxCellProb) {
+            maxCellProb = matrix[h][a];
+          }
+        }
+      }
+
+      let headerCols = `<th>${homeTeam} \\ ${awayTeam}</th>`;
+      for (let a = 0; a <= maxGoals; a++) {
+        const ap = awayProbs[a] || 0;
+        headerCols += `<th>${a}<br/><span style="font-size:0.62rem;font-weight:400;">(${(ap * 100).toFixed(1)}%)</span></th>`;
+      }
+
+      let bodyRows = "";
+      for (let h = 0; h <= maxGoals; h++) {
+        const hp = homeProbs[h] || 0;
+        let cells = `<th>${h} <span style="font-size:0.62rem;font-weight:400;">(${(hp * 100).toFixed(1)}%)</span></th>`;
+        for (let a = 0; a <= maxGoals; a++) {
+          const p = (matrix[h] && matrix[h][a]) || 0;
+          const intensity = maxCellProb > 0 ? Math.max(0.08, (p / maxCellProb) * 0.42) : 0.1;
+          let bgColor = "";
+          if (h > a) bgColor = `rgba(16, 185, 129, ${intensity.toFixed(3)})`;
+          else if (h === a) bgColor = `rgba(245, 158, 11, ${intensity.toFixed(3)})`;
+          else bgColor = `rgba(56, 189, 248, ${intensity.toFixed(3)})`;
+
+          const fairOdds = p > 0 ? (1 / p).toFixed(2) : "—";
+          cells += `
+            <td style="background-color:${bgColor};" title="${homeTeam} ${h}-${a} ${awayTeam} | Prob: ${(p * 100).toFixed(3)}% | Fair Odds: ${fairOdds}">
+              <span class="matrix-cell-score">${h}-${a}</span>
+              <span class="matrix-cell-prob">${(p * 100).toFixed(2)}%</span>
+            </td>
+          `;
+        }
+        bodyRows += `<tr>${cells}</tr>`;
+      }
+
+      const ahRows = ahTable
+        .filter((r) => Math.abs(r.home.line) <= 2.0)
+        .map(
+          (r) => `
+          <tr>
+            <td><strong>${homeTeam} ${r.home_line}</strong></td>
+            <td>${(r.home.eff_win_prob * 100).toFixed(1)}%</td>
+            <td>@${r.home.fair_odds.toFixed(2)}</td>
+            <td><strong>${awayTeam} ${r.away_line}</strong></td>
+            <td>${(r.away.eff_win_prob * 100).toFixed(1)}%</td>
+            <td>@${r.away.fair_odds.toFixed(2)}</td>
+          </tr>
+        `
+        )
+        .join("");
+
+      return `
+        <div class="drawer-grid">
+          <div>
+            <div class="market-group-title" style="margin-bottom:0.5rem;">8×8 Poisson Scoreline Probability Matrix</div>
+            <table class="matrix-table">
+              <thead><tr>${headerCols}</tr></thead>
+              <tbody>${bodyRows}</tbody>
+            </table>
+          </div>
+          <div>
+            <div class="market-group-title" style="margin-bottom:0.5rem;">Asian Handicap Lines (-2.0 to +2.0) — Effective Win % &amp; Fair Odds</div>
+            <table class="matrix-table">
+              <thead>
+                <tr>
+                  <th>Home Line</th>
+                  <th>Eff. Win %</th>
+                  <th>Fair Odds</th>
+                  <th>Away Line</th>
+                  <th>Eff. Win %</th>
+                  <th>Fair Odds</th>
+                </tr>
+              </thead>
+              <tbody>${ahRows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTop3Bets(top3, bankroll) {
+      if (!top3 || top3.length === 0) {
+        top3BetsContainer.innerHTML = `
+          <div class="empty-msg">
+            Enter your bookmaker's decimal odds into the matchup boxes below (or click <strong>"Fill Sample Bookie Odds"</strong>) to rank matchups across Premier League, La Liga, and Serie A and size stakes for the Top 3 picks.
+          </div>
+        `;
+        return;
+      }
+
+      top3BetsContainer.innerHTML = `
+        <div class="top3-grid">
+          ${top3
+            .map(
+              (pick) => `
+              <div class="bet-pick-card rank-${pick.rank}">
+                <div class="pick-header">
+                  <span class="pick-rank-badge">Rank #${pick.rank} Best Bet (Match #${pick.match_index})</span>
+                  <span class="league-pill ${pick.league_code || "E0"}">${pick.league_short || pick.league_code}</span>
+                </div>
+                <div class="pick-matchup">${pick.matchup_label}</div>
+                <div class="pick-market">Pick: ${pick.recommended_market} @ ${pick.bookie_odds.toFixed(2)}</div>
+
+                <div class="pick-metrics">
+                  <div class="pick-metric-box">
+                    <span class="lbl">Model Fair Odds</span>
+                    <span class="val">@ ${pick.fair_odds.toFixed(2)} (${(pick.prob * 100).toFixed(1)}%)</span>
+                  </div>
+                  <div class="pick-metric-box">
+                    <span class="lbl">Expected Value (Edge)</span>
+                    <span class="val" style="color:${pick.ev_pct >= 0 ? "#34d399" : "#f87171"};">
+                      ${pick.ev_pct >= 0 ? "+" : ""}${pick.ev_pct.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div class="pick-metric-box">
+                    <span class="lbl">Full Kelly %</span>
+                    <span class="val">${pick.kelly_pct.toFixed(2)}%</span>
+                  </div>
+                  <div class="pick-metric-box">
+                    <span class="lbl">Best Asian Handicap</span>
+                    <span class="val" style="color:#fde047;">
+                      ${pick.best_asian_handicap.label} (@${pick.best_asian_handicap.fair_odds.toFixed(2)})
+                    </span>
+                  </div>
+                </div>
+
+                <div class="pick-stake-bar">
+                  <div>
+                    <div class="stake-lbl">Recommended Stake (${pick.stake_pct_bankroll.toFixed(2)}% of $${Number(bankroll).toFixed(0)})</div>
+                    <div style="font-size:0.7rem;color:var(--muted);">Tier Weight: ${(pick.tier_weight * 100).toFixed(0)}% • Share of Pool: ${pick.share_of_top3_stakes_pct.toFixed(1)}%</div>
+                  </div>
+                  <div class="stake-amt">$${pick.recommended_stake.toFixed(2)}</div>
+                </div>
+              </div>
+            `
+            )
+            .join("")}
+        </div>
+      `;
+    }
+
+    async function refreshRoundCalculations() {
+      if (!allLeaguesStats || !allLeaguesStats.leagues) {
+        roundContainer.innerHTML = `<div class="empty-msg">No team data loaded.</div>`;
+        return;
+      }
+
+      matchupCountLabel.textContent = String(matchupsState.length);
+      const canAdd = matchupsState.length < MAX_MATCHUPS;
+      addE0Btn.disabled = !canAdd;
+      addSp1Btn.disabled = !canAdd;
+      addI1Btn.disabled = !canAdd;
+      saveStateToStorage();
+
+      const bankroll = parseFloat(bankrollInput.value) || 1000;
+      const kellyMultiplier = parseFloat(kellySelect.value) || 0.25;
+
+      try {
+        const res = await fetch("/api/calculate-round", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            matchups: matchupsState,
+            bankroll: bankroll,
+            kelly_multiplier: kellyMultiplier,
+          }),
+        });
+        const data = await res.json();
+        lastRoundResults = data.results || [];
+        renderTop3Bets(data.top_3_bets || [], bankroll);
+        renderRoundCards(lastRoundResults);
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Failed to calculate round: " + err.message;
+      }
+    }
+
+    function renderMarketCell(idx, mktKey, shortLabel, colorClass, prob, fairOdds, evalObj) {
+      const bookieVal = evalObj && evalObj.bookie_odds !== null ? evalObj.bookie_odds : "";
+      const hasEv = evalObj && evalObj.ev_pct !== null;
+      const isPos = hasEv && evalObj.ev_pct > 0;
+      const evText = hasEv
+        ? `<span class="ev-tag ${isPos ? "pos" : "neg"}">${isPos ? "+" : ""}${evalObj.ev_pct.toFixed(1)}% EV</span>`
+        : `<span class="ev-tag" style="color:var(--muted);">Enter Odds</span>`;
+
+      return `
+        <div class="stat-box ${isPos ? "positive-ev" : ""}">
+          <span class="stat-label">${shortLabel}</span>
+          <span class="stat-prob ${colorClass}">${(prob * 100).toFixed(1)}%</span>
+          <span class="stat-odds" title="Poisson Fair Odds">Fair @${fairOdds.toFixed(2)}</span>
+          <input
+            type="number"
+            step="0.01"
+            min="1.01"
+            placeholder="Bookie"
+            class="bookie-input"
+            data-idx="${idx}"
+            data-mkt="${mktKey}"
+            value="${bookieVal}"
+          />
+          ${evText}
+        </div>
+      `;
+    }
+
+    function renderRoundCards(results) {
+      roundContainer.innerHTML = results
+        .map((res, idx) => {
+          const stateItem = matchupsState[idx] || { league_code: "E0", openMatrix: false };
+          const lgCode = res.league_code || stateItem.league_code || "E0";
+          const teams = getTeamsForLeague(lgCode);
+          const p = res.poisson;
+          const top3 = p.top_3_scorelines || [];
+          const ah = p.asian_handicap || {};
+          const ahBal = ah.best_balanced || {};
+          const ahSafe = ah.best_safe || {};
+          const analysis = res.betting_analysis || {};
+          const mktEval = analysis.markets || {};
+          const rank = analysis.rank;
+
+          const leagueOptions = Object.keys(LEAGUE_LABELS)
+            .map(
+              (code) =>
+                `<option value="${code}" ${code === lgCode ? "selected" : ""}>${LEAGUE_LABELS[code]} (${code})</option>`
+            )
+            .join("");
+
+          const homeOptions = teams
+            .map((t) => `<option value="${t}" ${t === res.home_team ? "selected" : ""}>${t}</option>`)
+            .join("");
+          const awayOptions = teams
+            .map((t) => `<option value="${t}" ${t === res.away_team ? "selected" : ""}>${t}</option>`)
+            .join("");
+
+          const top3HTML = top3
+            .map(
+              (s, sIdx) => `
+              <div class="stat-box">
+                <span class="stat-label">#${sIdx + 1} (${s.score})</span>
+                <span class="stat-prob c-scr">${(s.prob * 100).toFixed(1)}%</span>
+                <span class="stat-odds">@${s.fair_odds.toFixed(2)}</span>
+              </div>
+            `
+            )
+            .join("");
+
+          const drawerHTML = buildDrawerHTML(res.home_team, res.away_team, p);
+
+          return `
+            <div class="match-card ${rank && rank <= 3 ? "top-ranked" : ""}" data-idx="${idx}">
+              <div class="match-top-row">
+                <div class="match-num-col">
+                  <div class="match-num">${idx + 1}</div>
+                  ${rank ? `<span class="rank-pill">Rank #${rank}</span>` : ""}
+                </div>
+
+                <div class="team-selectors">
+                  <div class="league-select-row">
+                    <span class="venue-tag lg">${lgCode}</span>
+                    <select class="league-select" data-idx="${idx}">${leagueOptions}</select>
+                  </div>
+                  <div class="team-select-row">
+                    <span class="venue-tag home">Home</span>
+                    <select class="home-select" data-idx="${idx}">${homeOptions}</select>
+                    <span class="xg-badge">${res.home_xg.toFixed(2)} xG</span>
+                  </div>
+                  <div class="team-select-row">
+                    <span class="venue-tag away">Away</span>
+                    <select class="away-select" data-idx="${idx}">${awayOptions}</select>
+                    <span class="xg-badge">${res.away_xg.toFixed(2)} xG</span>
+                  </div>
+                </div>
+
+                <div class="market-group">
+                  <div class="market-group-title">
+                    <span>1X2 (Fair vs Bookie)</span>
+                  </div>
+                  <div class="pills-grid-3">
+                    ${renderMarketCell(idx, "home_win", "Home (1)", "c-home", p.home_win_prob, p.home_win_fair_odds, mktEval.home_win)}
+                    ${renderMarketCell(idx, "draw", "Draw (X)", "c-draw", p.draw_prob, p.draw_fair_odds, mktEval.draw)}
+                    ${renderMarketCell(idx, "away_win", "Away (2)", "c-away", p.away_win_prob, p.away_win_fair_odds, mktEval.away_win)}
+                  </div>
+                </div>
+
+                <div class="market-group">
+                  <div class="market-group-title">
+                    <span>Totals &amp; BTTS (Fair vs Bookie)</span>
+                  </div>
+                  <div class="pills-grid-4">
+                    ${renderMarketCell(idx, "over_25", "O2.5", "c-mkt", p.over_25_prob, p.over_25_fair_odds, mktEval.over_25)}
+                    ${renderMarketCell(idx, "under_25", "U2.5", "c-mkt", p.under_25_prob, p.under_25_fair_odds, mktEval.under_25)}
+                    ${renderMarketCell(idx, "btts_yes", "BTTS Y", "c-mkt", p.btts_yes_prob, p.btts_yes_fair_odds, mktEval.btts_yes)}
+                    ${renderMarketCell(idx, "btts_no", "BTTS N", "c-mkt", p.btts_no_prob, p.btts_no_fair_odds, mktEval.btts_no)}
+                  </div>
+                </div>
+
+                <div class="market-group">
+                  <div class="market-group-title">
+                    <span>Best Asian Handicap (Fair vs Bookie)</span>
+                  </div>
+                  <div class="pills-grid-2">
+                    ${renderMarketCell(
+                      idx,
+                      "ah_balanced",
+                      ahBal.label || "Balanced AH",
+                      "c-ah",
+                      ahBal.eff_win_prob || 0,
+                      ahBal.fair_odds || 0,
+                      mktEval.ah_balanced
+                    )}
+                    ${renderMarketCell(
+                      idx,
+                      "ah_safe",
+                      ahSafe.label || "Safe AH",
+                      "c-ah",
+                      ahSafe.eff_win_prob || 0,
+                      ahSafe.fair_odds || 0,
+                      mktEval.ah_safe
+                    )}
+                  </div>
+                </div>
+
+                <div class="market-group">
+                  <div class="market-group-title">Top 3 Scorelines</div>
+                  <div class="pills-grid-3">
+                    ${top3HTML}
+                  </div>
+                </div>
+
+                <div class="match-actions">
+                  <button type="button" class="btn-xs toggle-matrix-btn" data-idx="${idx}">
+                    ${stateItem.openMatrix ? "Hide Details" : "Matrix & AH"}
+                  </button>
+                  ${
+                    matchupsState.length > 1
+                      ? `<button type="button" class="btn-xs danger remove-match-btn" data-idx="${idx}">Remove</button>`
+                      : ""
+                  }
+                </div>
+              </div>
+
+              <div class="matrix-drawer ${stateItem.openMatrix ? "open" : ""}" id="matrix-drawer-${idx}">
+                ${drawerHTML}
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      // Attach listeners
+      roundContainer.querySelectorAll(".league-select").forEach((sel) => {
+        sel.addEventListener("change", (e) => {
+          const i = Number(e.target.dataset.idx);
+          const newLg = e.target.value;
+          const lgTeams = getTeamsForLeague(newLg);
+          matchupsState[i].league_code = newLg;
+          matchupsState[i].home_team = lgTeams[0] || "";
+          matchupsState[i].away_team = lgTeams[1] || lgTeams[0] || "";
+          matchupsState[i].market_odds = {};
+          refreshRoundCalculations();
+        });
+      });
+
+      roundContainer.querySelectorAll(".home-select").forEach((sel) => {
+        sel.addEventListener("change", (e) => {
+          const i = Number(e.target.dataset.idx);
+          matchupsState[i].home_team = e.target.value;
+          refreshRoundCalculations();
+        });
+      });
+
+      roundContainer.querySelectorAll(".away-select").forEach((sel) => {
+        sel.addEventListener("change", (e) => {
+          const i = Number(e.target.dataset.idx);
+          matchupsState[i].away_team = e.target.value;
+          refreshRoundCalculations();
+        });
+      });
+
+      roundContainer.querySelectorAll(".bookie-input").forEach((inp) => {
+        inp.addEventListener("change", (e) => {
+          const i = Number(e.target.dataset.idx);
+          const mkt = e.target.dataset.mkt;
+          const val = e.target.value.trim();
+          if (!matchupsState[i].market_odds) {
+            matchupsState[i].market_odds = {};
+          }
+          if (val === "") {
+            delete matchupsState[i].market_odds[mkt];
+          } else {
+            matchupsState[i].market_odds[mkt] = parseFloat(val);
+          }
+          refreshRoundCalculations();
+        });
+      });
+
+      roundContainer.querySelectorAll(".toggle-matrix-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const i = Number(e.target.dataset.idx);
+          matchupsState[i].openMatrix = !matchupsState[i].openMatrix;
+          const drawer = document.getElementById(`matrix-drawer-${i}`);
+          if (drawer) {
+            drawer.classList.toggle("open", matchupsState[i].openMatrix);
+          }
+          e.target.textContent = matchupsState[i].openMatrix ? "Hide Details" : "Matrix & AH";
+        });
+      });
+
+      roundContainer.querySelectorAll(".remove-match-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const i = Number(e.target.dataset.idx);
+          matchupsState.splice(i, 1);
+          refreshRoundCalculations();
+        });
+      });
+    }
+
+    function addMatchupForLeague(lgCode) {
+      if (!allLeaguesStats || matchupsState.length >= MAX_MATCHUPS) return;
+      const teams = getTeamsForLeague(lgCode);
+      if (teams.length === 0) return;
+      matchupsState.push({
+        league_code: lgCode,
+        home_team: teams[0],
+        away_team: teams[1] || teams[0],
+        market_odds: {},
+        openMatrix: false,
+      });
+      refreshRoundCalculations();
+    }
+
+    addE0Btn.addEventListener("click", () => addMatchupForLeague("E0"));
+    addSp1Btn.addEventListener("click", () => addMatchupForLeague("SP1"));
+    addI1Btn.addEventListener("click", () => addMatchupForLeague("I1"));
+
+    loadE0RoundBtn.addEventListener("click", () => {
+      populateSingleLeagueRound("E0");
+      refreshRoundCalculations();
+    });
+    loadSp1RoundBtn.addEventListener("click", () => {
+      populateSingleLeagueRound("SP1");
+      refreshRoundCalculations();
+    });
+    loadI1RoundBtn.addEventListener("click", () => {
+      populateSingleLeagueRound("I1");
+      refreshRoundCalculations();
+    });
+    loadMixedRoundBtn.addEventListener("click", () => {
+      populateMixedRound();
+      refreshRoundCalculations();
+    });
+
+    bankrollInput.addEventListener("change", refreshRoundCalculations);
+    kellySelect.addEventListener("change", refreshRoundCalculations);
+
+    sampleOddsBtn.addEventListener("click", () => {
+      if (!lastRoundResults || lastRoundResults.length === 0) return;
+      const edgeOffsets = [1.08, 0.96, 1.12, 0.94, 1.06, 0.95, 1.09, 0.93, 1.04, 0.97];
+      lastRoundResults.forEach((res, idx) => {
+        const p = res.poisson;
+        const ah = p.asian_handicap || {};
+        const ahBalOdds = (ah.best_balanced && ah.best_balanced.fair_odds) || 1.9;
+        const ahSafeOdds = (ah.best_safe && ah.best_safe.fair_odds) || 1.55;
+        const mult = edgeOffsets[idx % edgeOffsets.length];
+        matchupsState[idx].market_odds = {
+          home_win: Number((p.home_win_fair_odds * mult).toFixed(2)),
+          draw: Number((p.draw_fair_odds * 0.95).toFixed(2)),
+          away_win: Number((p.away_win_fair_odds * 0.94).toFixed(2)),
+          over_25: Number((p.over_25_fair_odds * (idx % 2 === 0 ? 0.96 : mult)).toFixed(2)),
+          under_25: Number((p.under_25_fair_odds * 0.95).toFixed(2)),
+          btts_yes: Number((p.btts_yes_fair_odds * (idx % 3 === 0 ? mult : 0.95)).toFixed(2)),
+          btts_no: Number((p.btts_no_fair_odds * 0.95).toFixed(2)),
+          ah_balanced: Number((ahBalOdds * (idx === 1 ? 1.11 : 0.96)).toFixed(2)),
+          ah_safe: Number((ahSafeOdds * 0.96).toFixed(2)),
+        };
+      });
+      refreshRoundCalculations();
+    });
+
+    clearOddsBtn.addEventListener("click", () => {
+      matchupsState.forEach((m) => {
+        m.market_odds = {};
+      });
+      refreshRoundCalculations();
+    });
+
+    function buildTableHTML(rows, summary, venueLabel) {
+      if (!rows || rows.length === 0) {
+        return `<div class="empty-msg">No team data available. Click "Update Data" to download the CSV files.</div>`;
+      }
+      const bodyRows = rows
+        .map(
+          (r) => `
+          <tr>
+            <td><strong>${r.team}</strong></td>
+            <td class="num">${r.games_played}</td>
+            <td class="num" title="Time-Decay Weighted Avg Scored: ${Number(r.weighted_avg_scored || 0).toFixed(3)}/game">${r.goals_scored}</td>
+            <td class="num" title="Time-Decay Weighted Avg Conceded: ${Number(r.weighted_avg_conceded || 0).toFixed(3)}/game">${r.goals_conceded}</td>
+            <td class="num strength" title="Time-Decay Weighted Avg Scored: ${Number(r.weighted_avg_scored || 0).toFixed(3)}">${Number(r.attack_strength || 0).toFixed(3)}</td>
+            <td class="num strength" title="Time-Decay Weighted Avg Conceded: ${Number(r.weighted_avg_conceded || 0).toFixed(3)}">${Number(r.defense_strength || 0).toFixed(3)}</td>
+          </tr>
+        `
+        )
+        .join("");
+
+      const totalGames = summary ? summary.total_games : rows.reduce((s, r) => s + r.games_played, 0);
+      const totalScored = summary ? summary.total_goals_scored : rows.reduce((s, r) => s + r.goals_scored, 0);
+      const totalConceded = summary ? summary.total_goals_conceded : rows.reduce((s, r) => s + r.goals_conceded, 0);
+      const avgScored = summary ? Number(summary.avg_goals_scored).toFixed(3) : (totalGames > 0 ? (totalScored / totalGames).toFixed(3) : "0.000");
+      const avgConceded = summary ? Number(summary.avg_goals_conceded).toFixed(3) : (totalGames > 0 ? (totalConceded / totalGames).toFixed(3) : "0.000");
+
+      return `
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th class="num">Games Played</th>
+              <th class="num">Goals Scored</th>
+              <th class="num">Goals Conceded</th>
+              <th class="num">Attacking Strength</th>
+              <th class="num">Defensive Strength</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td>Total (All Teams)</td>
+              <td class="num">${totalGames}</td>
+              <td class="num">${totalScored}</td>
+              <td class="num">${totalConceded}</td>
+              <td class="num">—</td>
+              <td class="num">—</td>
+            </tr>
+            <tr class="avg-row">
+              <td>Average Goals (${venueLabel})</td>
+              <td class="num">Per Match</td>
+              <td class="num">${avgScored}</td>
+              <td class="num">${avgConceded}</td>
+              <td class="num">1.000</td>
+              <td class="num">1.000</td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+    }
+
+    function renderActiveLeagueTable() {
+      if (!allLeaguesStats || !allLeaguesStats.leagues) return;
+      const lgStats = allLeaguesStats.leagues[activeTableLeague] || allLeaguesStats.leagues["E0"];
+      if (!lgStats) return;
+
+      leagueTableTabs.querySelectorAll("button").forEach((btn) => {
+        btn.classList.toggle("active-tab", btn.dataset.lg === activeTableLeague);
+      });
+
+      const homeRows = lgStats.home || [];
+      const awayRows = lgStats.away || [];
+      homeTableTitle.textContent = `${lgStats.short_name} — Home Matches`;
+      awayTableTitle.textContent = `${lgStats.short_name} — Away Matches`;
+      homeCountLabel.textContent = `Most Recent 15 Matches • ${homeRows.length} Teams`;
+      awayCountLabel.textContent = `Most Recent 15 Matches • ${awayRows.length} Teams`;
+      homeTableWrapper.innerHTML = buildTableHTML(homeRows, lgStats.home_summary, "Home");
+      awayTableWrapper.innerHTML = buildTableHTML(awayRows, lgStats.away_summary, "Away");
+    }
+
+    leagueTableTabs.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        activeTableLeague = e.target.dataset.lg;
+        saveStateToStorage();
+        renderActiveLeagueTable();
+      });
+    });
+
+    function renderTeamStats(teamStats) {
+      if (!teamStats) return;
+      allLeaguesStats = teamStats;
+
+      if (matchupsState.length === 0) {
+        const restored = loadStateFromStorage();
+        if (!restored) {
+          populateMixedRound();
+        }
+      }
+
+      renderActiveLeagueTable();
+      refreshRoundCalculations();
+    }
+
+    async function loadStatus() {
+      try {
+        const res = await fetch("/api/team-stats");
+        const data = await res.json();
+        renderTeamStats(data);
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Failed to load team data: " + err.message;
+      }
+    }
+
+    updateBtn.addEventListener("click", async () => {
+      updateBtn.disabled = true;
+      updateBtn.classList.add("loading");
+      btnText.textContent = "Updating...";
+      statusBanner.className = "banner";
+      statusBanner.textContent = "";
+
+      try {
+        const res = await fetch("/api/update-data", { method: "POST" });
+        const data = await res.json();
+
+        if (data.team_stats) {
+          renderTeamStats(data.team_stats);
+        }
+
+        if (data.success) {
+          statusBanner.className = "banner success";
+          statusBanner.textContent = `Successfully updated Premier League (E0), La Liga (SP1), and Serie A (I1) datasets (${data.timestamp}).`;
+        } else {
+          statusBanner.className = "banner error";
+          statusBanner.textContent = `Completed with errors: ${data.errors.join("; ")}`;
+        }
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Error updating data: " + err.message;
+      } finally {
+        updateBtn.disabled = false;
+        updateBtn.classList.remove("loading");
+        btnText.textContent = "Update Data";
+      }
+    });
+
+    loadStatus();
+  </script>
+</body>
+</html>
