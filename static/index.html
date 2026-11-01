@@ -797,6 +797,54 @@
       border: 1px solid var(--panel-border);
       border-radius: 0.75rem;
     }
+
+    .form-badges {
+      display: inline-flex;
+      gap: 0.22rem;
+      align-items: center;
+    }
+
+    .f-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 0.25rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .f-badge.W {
+      background-color: rgba(16, 185, 129, 0.22);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .f-badge.D {
+      background-color: rgba(245, 158, 11, 0.22);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .f-badge.L {
+      background-color: rgba(239, 68, 68, 0.22);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .pos-badge {
+      display: inline-block;
+      min-width: 24px;
+      text-align: center;
+      padding: 0.12rem 0.35rem;
+      border-radius: 0.28rem;
+      font-weight: 700;
+      font-size: 0.75rem;
+      background-color: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+    }
   </style>
 </head>
 <body>
@@ -829,6 +877,13 @@
             <option value="1.00">1.00x (Full Kelly)</option>
           </select>
         </div>
+        <div class="input-group">
+          <label for="last-season-select">Include Last Season Data</label>
+          <select id="last-season-select">
+            <option value="true" selected>True (2025–26 + 2026–27)</option>
+            <option value="false">False (2026–27 Season Only)</option>
+          </select>
+        </div>
       </div>
       <div class="toolbar-actions">
         <button id="sample-odds-btn" class="btn btn-secondary" type="button">Fill Sample Bookie Odds</button>
@@ -846,7 +901,7 @@
 
     <!-- Round Matchups -->
     <div class="section-header">
-      <h2 class="section-title">Round Matchups, Market Odds &amp; Asian Handicap (<span id="matchup-count-label">0</span> / 10)</h2>
+      <h2 class="section-title">Round Matchups, Market Odds &amp; Asian Handicap (<span id="matchup-count-label">0</span> / 50)</h2>
       <div class="toolbar-actions">
         <button id="add-e0-btn" class="btn btn-secondary" type="button">+ Premier League</button>
         <button id="add-sp1-btn" class="btn btn-secondary" type="button">+ La Liga</button>
@@ -854,7 +909,7 @@
         <button id="load-e0-round-btn" class="btn btn-secondary" type="button">10x E0</button>
         <button id="load-sp1-round-btn" class="btn btn-secondary" type="button">10x SP1</button>
         <button id="load-i1-round-btn" class="btn btn-secondary" type="button">10x I1</button>
-        <button id="load-mixed-round-btn" class="btn btn-secondary" type="button">Mixed Round (E0/SP1/I1)</button>
+        <button id="load-mixed-round-btn" class="btn btn-secondary" type="button">All 30 Matches (E0/SP1/I1)</button>
       </div>
     </div>
 
@@ -862,12 +917,20 @@
 
     <!-- League Team Data Tables with League Switcher Tabs -->
     <div class="section-header" style="margin-top: 2rem;">
-      <h2 class="section-title">Current League Team Data (Last 15 Home &amp; Last 15 Away Matches — Time-Decay Weighted)</h2>
+      <h2 class="section-title">Current League Standings, Recent Form &amp; Team Data</h2>
       <div class="toolbar-actions" id="league-table-tabs">
         <button type="button" class="btn btn-secondary active-tab" data-lg="E0">Premier League (E0)</button>
         <button type="button" class="btn btn-secondary" data-lg="SP1">La Liga (SP1)</button>
         <button type="button" class="btn btn-secondary" data-lg="I1">Serie A (I1)</button>
       </div>
+    </div>
+
+    <div class="table-card" style="margin-bottom: 1.5rem;">
+      <div class="table-header">
+        <h3 id="standings-table-title">2026–2027 League Standings, Goal Difference &amp; Recent Form</h3>
+        <span class="table-subtitle" id="standings-count-label">Win = 3 pts • Draw = 1 pt • Loss = 0 pts</span>
+      </div>
+      <div id="standings-table-wrapper"></div>
     </div>
 
     <div class="tables-grid">
@@ -890,7 +953,7 @@
   </div>
 
   <script>
-    const MAX_MATCHUPS = 10;
+    const MAX_MATCHUPS = 50;
     const LEAGUE_LABELS = {
       E0: "Premier League",
       SP1: "La Liga",
@@ -901,6 +964,7 @@
     const btnText = document.getElementById("btn-text");
     const bankrollInput = document.getElementById("bankroll-input");
     const kellySelect = document.getElementById("kelly-select");
+    const lastSeasonSelect = document.getElementById("last-season-select");
     const sampleOddsBtn = document.getElementById("sample-odds-btn");
     const clearOddsBtn = document.getElementById("clear-odds-btn");
     const top3BetsContainer = document.getElementById("top3-bets-container");
@@ -918,6 +982,8 @@
     const statusBanner = document.getElementById("status-banner");
 
     const leagueTableTabs = document.getElementById("league-table-tabs");
+    const standingsTableTitle = document.getElementById("standings-table-title");
+    const standingsTableWrapper = document.getElementById("standings-table-wrapper");
     const homeTableTitle = document.getElementById("home-table-title");
     const awayTableTitle = document.getElementById("away-table-title");
     const homeTableWrapper = document.getElementById("home-table-wrapper");
@@ -929,6 +995,7 @@
     let activeTableLeague = "E0";
     let lastRoundResults = [];
     let matchupsState = []; // Array of { league_code, home_team, away_team, market_odds: {}, openMatrix: false }
+    let oddsDebounceTimer = null;
 
     const STORAGE_KEY = "poisson_kelly_multileague_state_v2";
 
@@ -943,6 +1010,7 @@
         const payload = {
           bankroll: bankrollInput.value,
           kellyMultiplier: kellySelect.value,
+          includeLastSeason: lastSeasonSelect.value,
           activeTableLeague: activeTableLeague,
           matchupsState: matchupsState,
         };
@@ -959,6 +1027,9 @@
         const parsed = JSON.parse(raw);
         if (parsed.bankroll) bankrollInput.value = parsed.bankroll;
         if (parsed.kellyMultiplier) kellySelect.value = parsed.kellyMultiplier;
+        if (parsed.includeLastSeason !== undefined) {
+          lastSeasonSelect.value = String(parsed.includeLastSeason);
+        }
         if (parsed.activeTableLeague && LEAGUE_LABELS[parsed.activeTableLeague]) {
           activeTableLeague = parsed.activeTableLeague;
         }
@@ -1001,32 +1072,15 @@
     }
 
     function populateMixedRound() {
-      const e0 = getTeamsForLeague("E0");
-      const sp1 = getTeamsForLeague("SP1");
-      const i1 = getTeamsForLeague("I1");
       matchupsState = [];
-
-      const plan = [
-        { lg: "E0", list: e0, pairIdx: 0 },
-        { lg: "E0", list: e0, pairIdx: 1 },
-        { lg: "E0", list: e0, pairIdx: 2 },
-        { lg: "E0", list: e0, pairIdx: 3 },
-        { lg: "SP1", list: sp1, pairIdx: 0 },
-        { lg: "SP1", list: sp1, pairIdx: 1 },
-        { lg: "SP1", list: sp1, pairIdx: 2 },
-        { lg: "I1", list: i1, pairIdx: 0 },
-        { lg: "I1", list: i1, pairIdx: 1 },
-        { lg: "I1", list: i1, pairIdx: 2 },
-      ];
-
-      plan.forEach((item) => {
-        const h = item.list[item.pairIdx * 2];
-        const a = item.list[item.pairIdx * 2 + 1];
-        if (h && a) {
+      ["E0", "SP1", "I1"].forEach((lgCode) => {
+        const list = getTeamsForLeague(lgCode);
+        const pairsCount = Math.floor(list.length / 2);
+        for (let i = 0; i < pairsCount && matchupsState.length < MAX_MATCHUPS; i++) {
           matchupsState.push({
-            league_code: item.lg,
-            home_team: h,
-            away_team: a,
+            league_code: lgCode,
+            home_team: list[i * 2],
+            away_team: list[i * 2 + 1],
             market_odds: {},
             openMatrix: false,
           });
@@ -1185,7 +1239,59 @@
       `;
     }
 
-    async function refreshRoundCalculations() {
+    function updateOddsEvaluationInPlace(results) {
+      results.forEach((res, idx) => {
+        const card = roundContainer.querySelector(`.match-card[data-idx="${idx}"]`);
+        if (!card) return;
+        const analysis = res.betting_analysis || {};
+        const mktEval = analysis.markets || {};
+        const rank = analysis.rank;
+
+        card.classList.toggle("top-ranked", Boolean(rank && rank <= 3));
+        const rankHolder = card.querySelector(".match-num-col");
+        if (rankHolder) {
+          const existingPill = rankHolder.querySelector(".rank-pill");
+          if (rank) {
+            if (existingPill) {
+              existingPill.textContent = `Rank #${rank}`;
+            } else {
+              const span = document.createElement("span");
+              span.className = "rank-pill";
+              span.textContent = `Rank #${rank}`;
+              rankHolder.appendChild(span);
+            }
+          } else if (existingPill) {
+            existingPill.remove();
+          }
+        }
+
+        Object.keys(mktEval).forEach((mktKey) => {
+          const evalObj = mktEval[mktKey];
+          const inp = card.querySelector(`.bookie-input[data-idx="${idx}"][data-mkt="${mktKey}"]`);
+          if (!inp) return;
+          const box = inp.closest(".stat-box");
+          const evTag = box ? box.querySelector(".ev-tag") : null;
+          const hasEv = evalObj && evalObj.ev_pct !== null;
+          const isPos = hasEv && evalObj.ev_pct > 0;
+          if (box) {
+            box.classList.toggle("positive-ev", Boolean(isPos));
+          }
+          if (evTag) {
+            if (hasEv) {
+              evTag.className = `ev-tag ${isPos ? "pos" : "neg"}`;
+              evTag.removeAttribute("style");
+              evTag.textContent = `${isPos ? "+" : ""}${evalObj.ev_pct.toFixed(1)}% EV`;
+            } else {
+              evTag.className = "ev-tag";
+              evTag.style.color = "var(--muted)";
+              evTag.textContent = "Enter Odds";
+            }
+          }
+        });
+      });
+    }
+
+    async function refreshRoundCalculations(inPlaceOddsOnly = false) {
       if (!allLeaguesStats || !allLeaguesStats.leagues) {
         roundContainer.innerHTML = `<div class="empty-msg">No team data loaded.</div>`;
         return;
@@ -1200,6 +1306,7 @@
 
       const bankroll = parseFloat(bankrollInput.value) || 1000;
       const kellyMultiplier = parseFloat(kellySelect.value) || 0.25;
+      const includeLastSeason = lastSeasonSelect.value === "true";
 
       try {
         const res = await fetch("/api/calculate-round", {
@@ -1209,12 +1316,17 @@
             matchups: matchupsState,
             bankroll: bankroll,
             kelly_multiplier: kellyMultiplier,
+            include_last_season: includeLastSeason,
           }),
         });
         const data = await res.json();
         lastRoundResults = data.results || [];
         renderTop3Bets(data.top_3_bets || [], bankroll);
-        renderRoundCards(lastRoundResults);
+        if (inPlaceOddsOnly && roundContainer.querySelectorAll(".match-card").length === lastRoundResults.length) {
+          updateOddsEvaluationInPlace(lastRoundResults);
+        } else {
+          renderRoundCards(lastRoundResults);
+        }
       } catch (err) {
         statusBanner.className = "banner error";
         statusBanner.textContent = "Failed to calculate round: " + err.message;
@@ -1271,12 +1383,29 @@
             )
             .join("");
 
+          const lgObj = (allLeaguesStats && allLeaguesStats.leagues && allLeaguesStats.leagues[lgCode]) || {};
+          const stMap = {};
+          (lgObj.standings || []).forEach((st) => {
+            stMap[st.team] = st;
+          });
+
           const homeOptions = teams
-            .map((t) => `<option value="${t}" ${t === res.home_team ? "selected" : ""}>${t}</option>`)
+            .map((t) => {
+              const pos = stMap[t] ? `#${stMap[t].position} ` : "";
+              return `<option value="${t}" ${t === res.home_team ? "selected" : ""}>${pos}${t}</option>`;
+            })
             .join("");
           const awayOptions = teams
-            .map((t) => `<option value="${t}" ${t === res.away_team ? "selected" : ""}>${t}</option>`)
+            .map((t) => {
+              const pos = stMap[t] ? `#${stMap[t].position} ` : "";
+              return `<option value="${t}" ${t === res.away_team ? "selected" : ""}>${pos}${t}</option>`;
+            })
             .join("");
+
+          const hSt = res.home_standing || {};
+          const aSt = res.away_standing || {};
+          const hTooltip = `Pos #${hSt.position || "—"} (${hSt.points || 0} pts, GD ${hSt.gd >= 0 ? "+" + hSt.gd : hSt.gd}) | Form: ${hSt.form_str || "—"} | Mult: ${Number(hSt.multiplier || 1).toFixed(3)}x (Base xG: ${Number(res.base_home_xg || res.home_xg).toFixed(2)})`;
+          const aTooltip = `Pos #${aSt.position || "—"} (${aSt.points || 0} pts, GD ${aSt.gd >= 0 ? "+" + aSt.gd : aSt.gd}) | Form: ${aSt.form_str || "—"} | Mult: ${Number(aSt.multiplier || 1).toFixed(3)}x (Base xG: ${Number(res.base_away_xg || res.away_xg).toFixed(2)})`;
 
           const top3HTML = top3
             .map(
@@ -1308,12 +1437,12 @@
                   <div class="team-select-row">
                     <span class="venue-tag home">Home</span>
                     <select class="home-select" data-idx="${idx}">${homeOptions}</select>
-                    <span class="xg-badge">${res.home_xg.toFixed(2)} xG</span>
+                    <span class="xg-badge" title="${hTooltip}">${res.home_xg.toFixed(2)} xG</span>
                   </div>
                   <div class="team-select-row">
                     <span class="venue-tag away">Away</span>
                     <select class="away-select" data-idx="${idx}">${awayOptions}</select>
-                    <span class="xg-badge">${res.away_xg.toFixed(2)} xG</span>
+                    <span class="xg-badge" title="${aTooltip}">${res.away_xg.toFixed(2)} xG</span>
                   </div>
                 </div>
 
@@ -1424,7 +1553,7 @@
       });
 
       roundContainer.querySelectorAll(".bookie-input").forEach((inp) => {
-        inp.addEventListener("change", (e) => {
+        const handleBookieOddUpdate = (e) => {
           const i = Number(e.target.dataset.idx);
           const mkt = e.target.dataset.mkt;
           const val = e.target.value.trim();
@@ -1434,10 +1563,18 @@
           if (val === "") {
             delete matchupsState[i].market_odds[mkt];
           } else {
-            matchupsState[i].market_odds[mkt] = parseFloat(val);
+            const numVal = parseFloat(val);
+            if (!isNaN(numVal)) {
+              matchupsState[i].market_odds[mkt] = numVal;
+            }
           }
-          refreshRoundCalculations();
-        });
+          if (oddsDebounceTimer) clearTimeout(oddsDebounceTimer);
+          oddsDebounceTimer = setTimeout(() => {
+            refreshRoundCalculations(true);
+          }, 180);
+        };
+        inp.addEventListener("input", handleBookieOddUpdate);
+        inp.addEventListener("change", handleBookieOddUpdate);
       });
 
       roundContainer.querySelectorAll(".toggle-matrix-btn").forEach((btn) => {
@@ -1496,8 +1633,12 @@
       refreshRoundCalculations();
     });
 
-    bankrollInput.addEventListener("change", refreshRoundCalculations);
-    kellySelect.addEventListener("change", refreshRoundCalculations);
+    bankrollInput.addEventListener("change", () => refreshRoundCalculations());
+    kellySelect.addEventListener("change", () => refreshRoundCalculations());
+    lastSeasonSelect.addEventListener("change", async () => {
+      saveStateToStorage();
+      await loadStatus();
+    });
 
     sampleOddsBtn.addEventListener("click", () => {
       if (!lastRoundResults || lastRoundResults.length === 0) return;
@@ -1540,10 +1681,10 @@
           <tr>
             <td><strong>${r.team}</strong></td>
             <td class="num">${r.games_played}</td>
-            <td class="num" title="Time-Decay Weighted Avg Scored: ${Number(r.weighted_avg_scored || 0).toFixed(3)}/game">${r.goals_scored}</td>
-            <td class="num" title="Time-Decay Weighted Avg Conceded: ${Number(r.weighted_avg_conceded || 0).toFixed(3)}/game">${r.goals_conceded}</td>
-            <td class="num strength" title="Time-Decay Weighted Avg Scored: ${Number(r.weighted_avg_scored || 0).toFixed(3)}">${Number(r.attack_strength || 0).toFixed(3)}</td>
-            <td class="num strength" title="Time-Decay Weighted Avg Conceded: ${Number(r.weighted_avg_conceded || 0).toFixed(3)}">${Number(r.defense_strength || 0).toFixed(3)}</td>
+            <td class="num" title="Avg Scored: ${Number(r.avg_goals_scored || 0).toFixed(3)}/game">${r.goals_scored}</td>
+            <td class="num" title="Avg Conceded: ${Number(r.avg_goals_conceded || 0).toFixed(3)}/game">${r.goals_conceded}</td>
+            <td class="num strength" title="Avg Scored: ${Number(r.avg_goals_scored || 0).toFixed(3)}">${Number(r.attack_strength || 0).toFixed(3)}</td>
+            <td class="num strength" title="Avg Conceded: ${Number(r.avg_goals_conceded || 0).toFixed(3)}">${Number(r.defense_strength || 0).toFixed(3)}</td>
           </tr>
         `
         )
@@ -1592,6 +1733,66 @@
       `;
     }
 
+    function buildStandingsTableHTML(standings) {
+      if (!standings || standings.length === 0) {
+        return `<div class="empty-msg">No standings data available.</div>`;
+      }
+      const rowsHTML = standings
+        .map((st) => {
+          const formBadges = (st.form_last5 || [])
+            .map((ch) => `<span class="f-badge ${ch}">${ch}</span>`)
+            .join("");
+          const gdStr = st.gd > 0 ? `+${st.gd}` : String(st.gd);
+          const gdColor = st.gd > 0 ? "#34d399" : st.gd < 0 ? "#f87171" : "var(--muted)";
+          const mult = Number(st.form_position_multiplier || 1.0);
+          const multColor = mult >= 1.0 ? "#34d399" : "#f87171";
+
+          return `
+            <tr>
+              <td class="num" style="width: 52px;"><span class="pos-badge">${st.position}</span></td>
+              <td><strong>${st.team}</strong></td>
+              <td class="num">${st.mp}</td>
+              <td class="num">${st.wins}</td>
+              <td class="num">${st.draws}</td>
+              <td class="num">${st.losses}</td>
+              <td class="num">${st.gf}</td>
+              <td class="num">${st.ga}</td>
+              <td class="num" style="color:${gdColor};font-weight:700;">${gdStr}</td>
+              <td class="num" style="font-weight:700;color:#fde047;">${st.points}</td>
+              <td><div class="form-badges">${formBadges || "—"}</div></td>
+              <td class="num">${st.form_points} pts (${st.form_gd >= 0 ? "+" + st.form_gd : st.form_gd} GD)</td>
+              <td class="num strength" style="color:${multColor};font-weight:700;">${mult.toFixed(3)}x</td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      return `
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th class="num">Pos</th>
+              <th>Team</th>
+              <th class="num">MP</th>
+              <th class="num">W</th>
+              <th class="num">D</th>
+              <th class="num">L</th>
+              <th class="num">GF</th>
+              <th class="num">GA</th>
+              <th class="num">GD</th>
+              <th class="num">Pts</th>
+              <th>Last 5 Form</th>
+              <th class="num">Last 5 Pts (GD)</th>
+              <th class="num">xG Form/Pos Factor</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHTML}
+          </tbody>
+        </table>
+      `;
+    }
+
     function renderActiveLeagueTable() {
       if (!allLeaguesStats || !allLeaguesStats.leagues) return;
       const lgStats = allLeaguesStats.leagues[activeTableLeague] || allLeaguesStats.leagues["E0"];
@@ -1601,12 +1802,19 @@
         btn.classList.toggle("active-tab", btn.dataset.lg === activeTableLeague);
       });
 
+      const standingsRows = lgStats.standings || [];
+      standingsTableTitle.textContent = `${lgStats.short_name} — 2026–2027 League Standings, Goal Difference & Recent Form`;
+      standingsTableWrapper.innerHTML = buildStandingsTableHTML(standingsRows);
+
       const homeRows = lgStats.home || [];
       const awayRows = lgStats.away || [];
+      const scopeLabel = lastSeasonSelect.value === "true"
+        ? "Last 15 Matches (25/26 + 26/27)"
+        : "2026–27 Season Only";
       homeTableTitle.textContent = `${lgStats.short_name} — Home Matches`;
       awayTableTitle.textContent = `${lgStats.short_name} — Away Matches`;
-      homeCountLabel.textContent = `Most Recent 15 Matches • ${homeRows.length} Teams`;
-      awayCountLabel.textContent = `Most Recent 15 Matches • ${awayRows.length} Teams`;
+      homeCountLabel.textContent = `${scopeLabel} • ${homeRows.length} Teams`;
+      awayCountLabel.textContent = `${scopeLabel} • ${awayRows.length} Teams`;
       homeTableWrapper.innerHTML = buildTableHTML(homeRows, lgStats.home_summary, "Home");
       awayTableWrapper.innerHTML = buildTableHTML(awayRows, lgStats.away_summary, "Away");
     }
@@ -1619,11 +1827,14 @@
       });
     });
 
+    let initialStateRestored = false;
+
     function renderTeamStats(teamStats) {
       if (!teamStats) return;
       allLeaguesStats = teamStats;
 
-      if (matchupsState.length === 0) {
+      if (!initialStateRestored) {
+        initialStateRestored = true;
         const restored = loadStateFromStorage();
         if (!restored) {
           populateMixedRound();
@@ -1636,7 +1847,19 @@
 
     async function loadStatus() {
       try {
-        const res = await fetch("/api/team-stats");
+        if (!initialStateRestored) {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed.includeLastSeason !== undefined) {
+                lastSeasonSelect.value = String(parsed.includeLastSeason);
+              }
+            }
+          } catch (e) {}
+        }
+        const inc = lastSeasonSelect.value === "true";
+        const res = await fetch(`/api/team-stats?include_last_season=${inc}`);
         const data = await res.json();
         renderTeamStats(data);
       } catch (err) {
@@ -1653,7 +1876,8 @@
       statusBanner.textContent = "";
 
       try {
-        const res = await fetch("/api/update-data", { method: "POST" });
+        const inc = lastSeasonSelect.value === "true";
+        const res = await fetch(`/api/update-data?include_last_season=${inc}`, { method: "POST" });
         const data = await res.json();
 
         if (data.team_stats) {

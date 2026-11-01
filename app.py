@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 import requests
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -132,7 +133,9 @@ def _parse_match_datetime(row: dict, index: int) -> tuple:
 
 
 def get_league_team_stats(
-    league_code: str = "E0", max_matches: int = 15, decay_rate: float = 0.90
+    league_code: str = "E0",
+    max_matches: int = 15,
+    include_last_season: bool = True,
 ) -> dict:
     league_cfg = LEAGUES.get(league_code, LEAGUES["E0"])
     file_2627 = DATA_DIR / league_cfg["file_2627"]
@@ -160,8 +163,9 @@ def get_league_team_stats(
                 "avg_goals_scored": 0.0,
                 "avg_goals_conceded": 0.0,
             },
+            "standings": [],
             "max_matches": max_matches,
-            "decay_rate": decay_rate,
+            "include_last_season": include_last_season,
         }
 
     current_teams = set()
@@ -177,7 +181,7 @@ def get_league_team_stats(
             rows_2627.append(row)
 
     rows_2526 = []
-    if file_2526.exists():
+    if include_last_season and file_2526.exists():
         with open(file_2526, "r", encoding="utf-8-sig", errors="replace") as f:
             for row in csv.DictReader(f):
                 rows_2526.append(row)
@@ -220,9 +224,6 @@ def get_league_team_stats(
         total_games = 0
         total_scored = 0
         total_conceded = 0
-        total_weight = 0.0
-        total_weighted_scored = 0.0
-        total_weighted_conceded = 0.0
 
         for team in sorted_teams:
             recent = (
@@ -230,25 +231,16 @@ def get_league_team_stats(
                 if max_matches
                 else matches_by_team[team]
             )
-            n = len(recent)
-            gp = n
+            gp = len(recent)
             raw_gf = sum(m[0] for m in recent)
             raw_ga = sum(m[1] for m in recent)
 
-            weights = [decay_rate ** (n - 1 - idx) for idx in range(n)]
-            w_sum = sum(weights)
-            w_gf = sum(w * m[0] for w, m in zip(weights, recent))
-            w_ga = sum(w * m[1] for w, m in zip(weights, recent))
-
-            w_avg_gf = (w_gf / w_sum) if w_sum > 0 else 0.0
-            w_avg_ga = (w_ga / w_sum) if w_sum > 0 else 0.0
+            avg_gf = (raw_gf / gp) if gp > 0 else 0.0
+            avg_ga = (raw_ga / gp) if gp > 0 else 0.0
 
             total_games += gp
             total_scored += raw_gf
             total_conceded += raw_ga
-            total_weight += w_sum
-            total_weighted_scored += w_gf
-            total_weighted_conceded += w_ga
 
             stats_list.append(
                 {
@@ -256,54 +248,149 @@ def get_league_team_stats(
                     "games_played": gp,
                     "goals_scored": raw_gf,
                     "goals_conceded": raw_ga,
-                    "avg_goals_scored": round(raw_gf / gp, 4) if gp > 0 else 0.0,
-                    "avg_goals_conceded": round(raw_ga / gp, 4) if gp > 0 else 0.0,
-                    "weighted_avg_scored": round(w_avg_gf, 4),
-                    "weighted_avg_conceded": round(w_avg_ga, 4),
-                    "_w_avg_gf": w_avg_gf,
-                    "_w_avg_ga": w_avg_ga,
+                    "avg_goals_scored": round(avg_gf, 4),
+                    "avg_goals_conceded": round(avg_ga, 4),
+                    "_avg_gf": avg_gf,
+                    "_avg_ga": avg_ga,
                 }
             )
 
-        league_w_avg_scored = (
-            (total_weighted_scored / total_weight) if total_weight > 0 else 0.0
-        )
-        league_w_avg_conceded = (
-            (total_weighted_conceded / total_weight) if total_weight > 0 else 0.0
-        )
+        league_avg_scored = (total_scored / total_games) if total_games > 0 else 0.0
+        league_avg_conceded = (total_conceded / total_games) if total_games > 0 else 0.0
 
         for item in stats_list:
             item["attack_strength"] = (
-                round(item["_w_avg_gf"] / league_w_avg_scored, 4)
-                if league_w_avg_scored > 0
+                round(item["_avg_gf"] / league_avg_scored, 4)
+                if league_avg_scored > 0
                 else 0.0
             )
             item["defense_strength"] = (
-                round(item["_w_avg_ga"] / league_w_avg_conceded, 4)
-                if league_w_avg_conceded > 0
+                round(item["_avg_ga"] / league_avg_conceded, 4)
+                if league_avg_conceded > 0
                 else 0.0
             )
-            del item["_w_avg_gf"]
-            del item["_w_avg_ga"]
+            del item["_avg_gf"]
+            del item["_avg_ga"]
 
         summary = {
             "total_games": total_games,
             "total_goals_scored": total_scored,
             "total_goals_conceded": total_conceded,
-            "avg_goals_scored": round(league_w_avg_scored, 4),
-            "avg_goals_conceded": round(league_w_avg_conceded, 4),
-            "raw_avg_goals_scored": (
-                round(total_scored / total_games, 4) if total_games > 0 else 0.0
-            ),
-            "raw_avg_goals_conceded": (
-                round(total_conceded / total_games, 4) if total_games > 0 else 0.0
-            ),
-            "decay_rate": decay_rate,
+            "avg_goals_scored": round(league_avg_scored, 4),
+            "avg_goals_conceded": round(league_avg_conceded, 4),
         }
         return stats_list, summary
 
     home_stats, home_summary = _build_venue_stats(home_matches)
     away_stats, away_summary = _build_venue_stats(away_matches)
+
+    # Calculate 2026-2027 Current Season League Standings, Goal Difference & Recent Form
+    sorted_2627 = [
+        row
+        for _, row in sorted(
+            enumerate(rows_2627),
+            key=lambda item: _parse_match_datetime(item[1], item[0]),
+        )
+    ]
+
+    standings_map = {
+        team: {
+            "team": team,
+            "mp": 0,
+            "wins": 0,
+            "draws": 0,
+            "losses": 0,
+            "gf": 0,
+            "ga": 0,
+            "gd": 0,
+            "points": 0,
+            "recent_results": [],  # list of (result_char, pts, gd_in_match)
+        }
+        for team in sorted_teams
+    }
+
+    for row in sorted_2627:
+        home = (row.get("HomeTeam") or "").strip()
+        away = (row.get("AwayTeam") or "").strip()
+        fthg_raw = (row.get("FTHG") or "").strip()
+        ftag_raw = (row.get("FTAG") or "").strip()
+        if not fthg_raw or not ftag_raw:
+            continue
+        try:
+            fthg = int(float(fthg_raw))
+            ftag = int(float(ftag_raw))
+        except ValueError:
+            continue
+
+        if home in standings_map:
+            st = standings_map[home]
+            st["mp"] += 1
+            st["gf"] += fthg
+            st["ga"] += ftag
+            st["gd"] = st["gf"] - st["ga"]
+            if fthg > ftag:
+                st["wins"] += 1
+                st["points"] += 3
+                st["recent_results"].append(("W", 3, fthg - ftag))
+            elif fthg == ftag:
+                st["draws"] += 1
+                st["points"] += 1
+                st["recent_results"].append(("D", 1, 0))
+            else:
+                st["losses"] += 1
+                st["recent_results"].append(("L", 0, fthg - ftag))
+
+        if away in standings_map:
+            st = standings_map[away]
+            st["mp"] += 1
+            st["gf"] += ftag
+            st["ga"] += fthg
+            st["gd"] = st["gf"] - st["ga"]
+            if ftag > fthg:
+                st["wins"] += 1
+                st["points"] += 3
+                st["recent_results"].append(("W", 3, ftag - fthg))
+            elif ftag == fthg:
+                st["draws"] += 1
+                st["points"] += 1
+                st["recent_results"].append(("D", 1, 0))
+            else:
+                st["losses"] += 1
+                st["recent_results"].append(("L", 0, ftag - fthg))
+
+    # Sort standings by Points DESC, Goal Difference DESC, Goals For DESC, Team ASC
+    standings_list = sorted(
+        standings_map.values(),
+        key=lambda x: (-x["points"], -x["gd"], -x["gf"], x["team"]),
+    )
+
+    n_teams = len(standings_list)
+    # Compute last-5 form stats and composite Form/Position/GD multiplier for xG
+    for idx, st in enumerate(standings_list):
+        pos = idx + 1
+        st["position"] = pos
+        last_5 = st["recent_results"][-5:]
+        st["form_last5"] = [r[0] for r in last_5]
+        st["form_str"] = "-".join(st["form_last5"]) if st["form_last5"] else "—"
+        st["form_points"] = sum(r[1] for r in last_5)
+        st["form_gd"] = sum(r[2] for r in last_5)
+        form_ppg = (st["form_points"] / len(last_5)) if last_5 else 1.35
+        st["form_ppg"] = round(form_ppg, 2)
+
+        # Normalized scores in [-1, +1]
+        pos_score = (
+            (((n_teams + 1) / 2.0) - pos) / ((n_teams - 1) / 2.0)
+            if n_teams > 1
+            else 0.0
+        )
+        form_score = max(-1.0, min(1.0, (form_ppg - 1.35) / 1.65))
+        gd_per_game = (st["gd"] / st["mp"]) if st["mp"] > 0 else 0.0
+        gd_score = max(-1.0, min(1.0, gd_per_game / 2.0))
+
+        # Composite multiplier combining Recent Form (6%), League Position (5%), and Goal Difference (4%)
+        multiplier = 1.0 + (0.06 * form_score) + (0.05 * pos_score) + (0.04 * gd_score)
+        st["form_position_multiplier"] = round(multiplier, 4)
+        del st["recent_results"]
 
     return {
         "league_code": league_code,
@@ -314,27 +401,39 @@ def get_league_team_stats(
         "away": away_stats,
         "home_summary": home_summary,
         "away_summary": away_summary,
+        "standings": standings_list,
         "max_matches": max_matches,
-        "decay_rate": decay_rate,
+        "include_last_season": include_last_season,
     }
 
 
-def get_all_leagues_stats(max_matches: int = 15, decay_rate: float = 0.90) -> dict:
+def get_all_leagues_stats(
+    max_matches: int = 15,
+    include_last_season: bool = True,
+) -> dict:
     leagues_data = {}
     for code in LEAGUES:
         leagues_data[code] = get_league_team_stats(
-            league_code=code, max_matches=max_matches, decay_rate=decay_rate
+            league_code=code,
+            max_matches=max_matches,
+            include_last_season=include_last_season,
         )
     return {
         "leagues": leagues_data,
         "default_league": "E0",
-        # Keep top-level E0 keys for backwards compatibility
+        "include_last_season": include_last_season,
         **leagues_data["E0"],
     }
 
 
-def get_team_stats(max_matches: int = 15, decay_rate: float = 0.90) -> dict:
-    return get_all_leagues_stats(max_matches=max_matches, decay_rate=decay_rate)
+def get_team_stats(
+    max_matches: int = 15,
+    include_last_season: bool = True,
+) -> dict:
+    return get_all_leagues_stats(
+        max_matches=max_matches,
+        include_last_season=include_last_season,
+    )
 
 
 def poisson_pmf(k: int, lam: float) -> float:
@@ -531,17 +630,29 @@ def calculate_match_xg(
 
     home_map = {item["team"]: item for item in stats.get("home", [])}
     away_map = {item["team"]: item for item in stats.get("away", [])}
+    standings_map = {item["team"]: item for item in stats.get("standings", [])}
 
     if home_team not in home_map or away_team not in away_map:
         raise ValueError(f"Invalid home or away team selection for league {league_code}.")
 
     h_row = home_map[home_team]
     a_row = away_map[away_team]
+    h_st = standings_map.get(home_team, {})
+    a_st = standings_map.get(away_team, {})
+
     league_home_scored = stats["home_summary"]["avg_goals_scored"]
     league_away_scored = stats["away_summary"]["avg_goals_scored"]
 
-    home_xg = h_row["attack_strength"] * a_row["defense_strength"] * league_home_scored
-    away_xg = a_row["attack_strength"] * h_row["defense_strength"] * league_away_scored
+    base_home_xg = h_row["attack_strength"] * a_row["defense_strength"] * league_home_scored
+    base_away_xg = a_row["attack_strength"] * h_row["defense_strength"] * league_away_scored
+
+    h_mult = h_st.get("form_position_multiplier", 1.0) or 1.0
+    a_mult = a_st.get("form_position_multiplier", 1.0) or 1.0
+
+    # Apply Recent Form, League Position & Goal Difference factor to xG
+    home_xg = base_home_xg * (h_mult / a_mult)
+    away_xg = base_away_xg * (a_mult / h_mult)
+
     poisson_data = calculate_poisson_matrix(
         home_xg, away_xg, home_team=home_team, away_team=away_team, max_goals=7
     )
@@ -555,6 +666,22 @@ def calculate_match_xg(
         "away_team": away_team,
         "home_xg": round(home_xg, 4),
         "away_xg": round(away_xg, 4),
+        "base_home_xg": round(base_home_xg, 4),
+        "base_away_xg": round(base_away_xg, 4),
+        "home_standing": {
+            "position": h_st.get("position"),
+            "points": h_st.get("points", 0),
+            "gd": h_st.get("gd", 0),
+            "form_str": h_st.get("form_str", "—"),
+            "multiplier": h_mult,
+        },
+        "away_standing": {
+            "position": a_st.get("position"),
+            "points": a_st.get("points", 0),
+            "gd": a_st.get("gd", 0),
+            "form_str": a_st.get("form_str", "—"),
+            "multiplier": a_mult,
+        },
         "components": {
             "home_attack_strength": h_row["attack_strength"],
             "home_defense_strength": h_row["defense_strength"],
@@ -562,6 +689,8 @@ def calculate_match_xg(
             "away_defense_strength": a_row["defense_strength"],
             "league_avg_home_goals": league_home_scored,
             "league_avg_away_goals": league_away_scored,
+            "home_form_pos_multiplier": h_mult,
+            "away_form_pos_multiplier": a_mult,
         },
         "poisson": poisson_data,
     }
@@ -644,7 +773,8 @@ def evaluate_match_markets(match_res: dict, market_odds: dict) -> dict:
 
     best_bet = None
     if candidates:
-        candidates.sort(key=lambda x: (x["kelly_fraction"], x["ev"]), reverse=True)
+        # Sort by Expected Value (EV) descending first, then Kelly fraction descending
+        candidates.sort(key=lambda x: (x["ev"], x["kelly_fraction"]), reverse=True)
         best_bet = candidates[0]
 
     return {
@@ -659,14 +789,15 @@ def calculate_round_matches(
     stats: dict = None,
     bankroll: float = 1000.0,
     kelly_multiplier: float = 0.25,
+    include_last_season: bool = True,
 ) -> dict:
     if stats is None:
-        stats = get_all_leagues_stats()
+        stats = get_all_leagues_stats(include_last_season=include_last_season)
     elif "leagues" not in stats:
         stats = {"leagues": {"E0": stats}}
 
     results = []
-    for idx, pair in enumerate(matchups[:30]):
+    for idx, pair in enumerate(matchups[:50]):
         league_code = (pair.get("league_code") or "E0").strip().upper()
         if league_code not in LEAGUES:
             league_code = "E0"
@@ -676,7 +807,9 @@ def calculate_round_matches(
         if not home_team or not away_team:
             continue
         try:
-            league_stats = stats["leagues"].get(league_code) or get_league_team_stats(league_code)
+            league_stats = stats["leagues"].get(league_code) or get_league_team_stats(
+                league_code, include_last_season=include_last_season
+            )
             match_res = calculate_match_xg(
                 home_team, away_team, league_code=league_code, stats=league_stats
             )
@@ -692,8 +825,8 @@ def calculate_round_matches(
     ]
     ranked_candidates.sort(
         key=lambda r: (
-            r["betting_analysis"]["best_bet"]["kelly_fraction"],
             r["betting_analysis"]["best_bet"]["ev"],
+            r["betting_analysis"]["best_bet"]["kelly_fraction"],
         ),
         reverse=True,
     )
@@ -766,7 +899,20 @@ def calculate_round_matches(
     }
 
 
-def update_data_files() -> dict:
+def _parse_bool(val, default: bool = True) -> bool:
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return default
+    s = str(val).strip().lower()
+    if s in ("false", "0", "no"):
+        return False
+    if s in ("true", "1", "yes"):
+        return True
+    return default
+
+
+def update_data_files(include_last_season: bool = True) -> dict:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     results = []
     errors = []
@@ -795,7 +941,7 @@ def update_data_files() -> dict:
         "success": len(errors) == 0,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "files": results,
-        "team_stats": get_all_leagues_stats(),
+        "team_stats": get_all_leagues_stats(include_last_season=include_last_season),
         "errors": errors,
     }
 
@@ -813,22 +959,40 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path == "/api/data-status":
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+        inc_last = _parse_bool(
+            qs.get("include_last_season", ["true"])[0], default=True
+        )
+        if parsed.path == "/api/data-status":
             files = [get_file_metadata(src) for src in DATA_SOURCES]
-            self._send_json(200, {"files": files, "team_stats": get_all_leagues_stats()})
+            self._send_json(
+                200,
+                {
+                    "files": files,
+                    "team_stats": get_all_leagues_stats(include_last_season=inc_last),
+                },
+            )
             return
-        if self.path == "/api/team-stats":
-            self._send_json(200, get_all_leagues_stats())
+        if parsed.path == "/api/team-stats":
+            self._send_json(
+                200, get_all_leagues_stats(include_last_season=inc_last)
+            )
             return
         return super().do_GET()
 
     def do_POST(self):
-        if self.path == "/api/update-data":
-            result = update_data_files()
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/update-data":
+            qs = parse_qs(parsed.query)
+            inc_last = _parse_bool(
+                qs.get("include_last_season", ["true"])[0], default=True
+            )
+            result = update_data_files(include_last_season=inc_last)
             status_code = 200 if result["success"] else 207
             self._send_json(status_code, result)
             return
-        if self.path == "/api/calculate-round":
+        if parsed.path == "/api/calculate-round":
             content_length = int(self.headers.get("Content-Length", 0))
             raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
             try:
@@ -838,10 +1002,14 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 kelly_multiplier = float(
                     payload.get("kelly_multiplier", 0.25) or 0.25
                 )
+                inc_last = _parse_bool(
+                    payload.get("include_last_season", True), default=True
+                )
                 round_data = calculate_round_matches(
                     matchups,
                     bankroll=bankroll,
                     kelly_multiplier=kelly_multiplier,
+                    include_last_season=inc_last,
                 )
                 self._send_json(200, round_data)
             except Exception as exc:
