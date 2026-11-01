@@ -3,6 +3,7 @@ import io
 import json
 import math
 import os
+import uuid
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -875,6 +876,7 @@ def calculate_round_matches(
                 "home_team": r["home_team"],
                 "away_team": r["away_team"],
                 "matchup_label": f"{r['home_team']} vs {r['away_team']}",
+                "market_key": best["market_key"],
                 "recommended_market": best["market_label"],
                 "prob": best["prob"],
                 "fair_odds": best["fair_odds"],
@@ -946,6 +948,563 @@ def update_data_files(include_last_season: bool = True) -> dict:
     }
 
 
+BETS_FILE = DATA_DIR / "bet_history.json"
+
+BET_TYPE_CATEGORIES = [
+    "Home Win (1)",
+    "Draw (X)",
+    "Away Win (2)",
+    "Over 2.5 Goals",
+    "Under 2.5 Goals",
+    "BTTS - Yes",
+    "BTTS - No",
+    "Asian Handicap",
+    "Correct Score / Other",
+]
+
+ODDS_BUCKETS = [
+    ("1.01 - 1.49 (Heavy Fav)", 1.00, 1.50),
+    ("1.50 - 1.89 (Short Odds)", 1.50, 1.90),
+    ("1.90 - 2.39 (Value / Even)", 1.90, 2.40),
+    ("2.40 - 3.49 (Plus Money)", 2.40, 3.50),
+    ("3.50+ (Longshot)", 3.50, 9999.0),
+]
+
+EV_BUCKETS = [
+    ("< 0% (Negative EV)", -9999.0, 0.0),
+    ("0.0% - 4.9% (Low Edge)", 0.0, 5.0),
+    ("5.0% - 9.9% (Medium Edge)", 5.0, 10.0),
+    ("10.0%+ (High Edge)", 10.0, 9999.0),
+]
+
+
+def normalize_bet_type(market_label: str = "", bet_type: str = "", market_key: str = "") -> str:
+    key = (market_key or "").strip().lower()
+    if key == "home_win":
+        return "Home Win (1)"
+    if key == "draw":
+        return "Draw (X)"
+    if key == "away_win":
+        return "Away Win (2)"
+    if key == "over_25":
+        return "Over 2.5 Goals"
+    if key == "under_25":
+        return "Under 2.5 Goals"
+    if key == "btts_yes":
+        return "BTTS - Yes"
+    if key == "btts_no":
+        return "BTTS - No"
+    if key in ("ah_balanced", "ah_safe"):
+        return "Asian Handicap"
+
+    bt = (bet_type or "").strip()
+    if bt in BET_TYPE_CATEGORIES:
+        return bt
+
+    lbl = (market_label or bt).strip()
+    lbl_low = lbl.lower()
+    if "(1)" in lbl_low or "home win" in lbl_low:
+        return "Home Win (1)"
+    if "(x)" in lbl_low or lbl_low == "draw" or "draw (x)" in lbl_low:
+        return "Draw (X)"
+    if "(2)" in lbl_low or "away win" in lbl_low:
+        return "Away Win (2)"
+    if "over 2.5" in lbl_low or "o2.5" in lbl_low or "over " in lbl_low:
+        return "Over 2.5 Goals"
+    if "under 2.5" in lbl_low or "u2.5" in lbl_low or "under " in lbl_low:
+        return "Under 2.5 Goals"
+    if "btts - yes" in lbl_low or "btts yes" in lbl_low:
+        return "BTTS - Yes"
+    if "btts - no" in lbl_low or "btts no" in lbl_low:
+        return "BTTS - No"
+    if lbl_low.startswith("ah ") or "asian handicap" in lbl_low or "handicap" in lbl_low:
+        return "Asian Handicap"
+    return "Correct Score / Other"
+
+
+def compute_bet_settlement(stake: float, bookie_odds: float, status: str) -> dict:
+    st = (status or "Pending").strip()
+    stake_val = max(0.0, float(stake or 0.0))
+    odds_val = max(1.01, float(bookie_odds or 1.01))
+
+    if st == "Won":
+        profit = stake_val * (odds_val - 1.0)
+        payout = stake_val * odds_val
+        win_weight = 1.0
+        settled = True
+    elif st == "Half Won":
+        profit = 0.5 * stake_val * (odds_val - 1.0)
+        payout = stake_val + profit
+        win_weight = 0.5
+        settled = True
+    elif st == "Lost":
+        profit = -stake_val
+        payout = 0.0
+        win_weight = 0.0
+        settled = True
+    elif st == "Half Lost":
+        profit = -0.5 * stake_val
+        payout = 0.5 * stake_val
+        win_weight = 0.0
+        settled = True
+    elif st == "Push":
+        profit = 0.0
+        payout = stake_val
+        win_weight = 0.0
+        settled = True
+    else:
+        st = "Pending"
+        profit = 0.0
+        payout = 0.0
+        win_weight = 0.0
+        settled = False
+
+    return {
+        "status": st,
+        "profit": round(profit, 2),
+        "payout": round(payout, 2),
+        "win_weight": win_weight,
+        "settled": settled,
+    }
+
+
+def enrich_bet_record(raw: dict) -> dict:
+    bet_id = str(raw.get("id") or uuid.uuid4().hex[:10])
+    date_str = str(raw.get("date") or datetime.now().strftime("%Y-%m-%d")).strip()
+    league_code = str(raw.get("league_code") or "E0").strip().upper()
+    league_meta = LEAGUES.get(league_code, {"name": league_code, "short_name": league_code})
+    matchup = str(raw.get("matchup") or "Unknown Match").strip()
+    selection = str(raw.get("selection") or raw.get("recommended_market") or raw.get("bet_type") or "Selection").strip()
+    bet_type = normalize_bet_type(
+        market_label=selection,
+        bet_type=str(raw.get("bet_type") or ""),
+        market_key=str(raw.get("market_key") or ""),
+    )
+
+    try:
+        bookie_odds = round(max(1.01, float(raw.get("bookie_odds") or 1.90)), 2)
+    except (ValueError, TypeError):
+        bookie_odds = 1.90
+
+    fair_odds_raw = raw.get("fair_odds")
+    fair_odds = None
+    if fair_odds_raw not in (None, "", 0, "0"):
+        try:
+            fo = float(fair_odds_raw)
+            if fo > 1.0:
+                fair_odds = round(fo, 2)
+        except (ValueError, TypeError):
+            fair_odds = None
+
+    prob_raw = raw.get("model_prob")
+    model_prob = None
+    if prob_raw not in (None, "", 0, "0"):
+        try:
+            mp = float(prob_raw)
+            if mp > 1.0:
+                mp = mp / 100.0
+            if 0.0 < mp <= 1.0:
+                model_prob = round(mp, 4)
+        except (ValueError, TypeError):
+            model_prob = None
+
+    if model_prob is None and fair_odds is not None and fair_odds > 1.0:
+        model_prob = round(1.0 / fair_odds, 4)
+    elif fair_odds is None and model_prob is not None and model_prob > 0.0:
+        fair_odds = round(1.0 / model_prob, 2)
+
+    ev_pct_raw = raw.get("ev_pct")
+    ev_pct = None
+    if ev_pct_raw not in (None, ""):
+        try:
+            ev_pct = round(float(ev_pct_raw), 2)
+        except (ValueError, TypeError):
+            ev_pct = None
+    if ev_pct is None and model_prob is not None:
+        ev_pct = round(((model_prob * bookie_odds) - 1.0) * 100.0, 2)
+
+    try:
+        stake = round(max(0.0, float(raw.get("stake") or 25.0)), 2)
+    except (ValueError, TypeError):
+        stake = 25.0
+
+    settlement = compute_bet_settlement(stake, bookie_odds, str(raw.get("status") or "Pending"))
+
+    return {
+        "id": bet_id,
+        "date": date_str,
+        "league_code": league_code,
+        "league_short": league_meta.get("short_name", league_code),
+        "matchup": matchup,
+        "bet_type": bet_type,
+        "selection": selection,
+        "bookie_odds": bookie_odds,
+        "fair_odds": fair_odds,
+        "model_prob": model_prob,
+        "model_prob_pct": round(model_prob * 100.0, 1) if model_prob is not None else None,
+        "ev_pct": ev_pct,
+        "stake": stake,
+        "status": settlement["status"],
+        "profit": settlement["profit"],
+        "payout": settlement["payout"],
+        "settled": settlement["settled"],
+        "notes": str(raw.get("notes") or "").strip(),
+    }
+
+
+def load_bets() -> list:
+    if not BETS_FILE.exists():
+        return []
+    try:
+        data = json.loads(BETS_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return [enrich_bet_record(item) for item in data]
+    except Exception:
+        pass
+    return []
+
+
+def save_bets(bets: list) -> list:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    enriched = [enrich_bet_record(b) for b in bets]
+    BETS_FILE.write_text(json.dumps(enriched, indent=2), encoding="utf-8")
+    return enriched
+
+
+def _aggregate_group(group_name: str, items: list, extra: dict = None) -> dict:
+    settled = [b for b in items if b["settled"]]
+    decisive = [b for b in settled if b["status"] in ("Won", "Half Won", "Lost", "Half Lost")]
+
+    wins = sum(1 for b in settled if b["status"] in ("Won", "Half Won"))
+    losses = sum(1 for b in settled if b["status"] in ("Lost", "Half Lost"))
+    pushes = sum(1 for b in settled if b["status"] == "Push")
+    pending = sum(1 for b in items if not b["settled"])
+
+    win_units = sum(
+        1.0 if b["status"] == "Won" else (0.5 if b["status"] == "Half Won" else 0.0)
+        for b in decisive
+    )
+    win_rate_pct = round((win_units / len(decisive)) * 100.0, 1) if decisive else 0.0
+
+    probs = [b["model_prob"] for b in decisive if b.get("model_prob") is not None]
+    if not probs:
+        probs = [1.0 / b["bookie_odds"] for b in decisive if b.get("bookie_odds", 0) > 1.0]
+    model_win_rate_pct = round((sum(probs) / len(probs)) * 100.0, 1) if probs else 0.0
+    calibration_diff_pct = round(win_rate_pct - model_win_rate_pct, 1) if decisive else 0.0
+
+    staked = round(sum(b["stake"] for b in settled), 2)
+    profit = round(sum(b["profit"] for b in settled), 2)
+    roi_pct = round((profit / staked) * 100.0, 2) if staked > 0 else 0.0
+
+    avg_odds = (
+        round(sum(b["bookie_odds"] for b in settled) / len(settled), 2)
+        if settled
+        else (round(sum(b["bookie_odds"] for b in items) / len(items), 2) if items else 0.0)
+    )
+    ev_vals = [b["ev_pct"] for b in items if b.get("ev_pct") is not None]
+    avg_ev_pct = round(sum(ev_vals) / len(ev_vals), 2) if ev_vals else None
+
+    res = {
+        "category": group_name,
+        "total_bets": len(items),
+        "settled_bets": len(settled),
+        "pending_bets": pending,
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "win_rate_pct": win_rate_pct,
+        "model_win_rate_pct": model_win_rate_pct,
+        "calibration_diff_pct": calibration_diff_pct,
+        "avg_odds": avg_odds,
+        "avg_ev_pct": avg_ev_pct,
+        "staked": staked,
+        "profit": profit,
+        "roi_pct": roi_pct,
+    }
+    if extra:
+        res.update(extra)
+    return res
+
+
+def analyze_bet_history(bets: list) -> dict:
+    enriched = [enrich_bet_record(b) for b in bets]
+    overall = _aggregate_group("Overall", enriched)
+
+    settled = [b for b in enriched if b["settled"]]
+    winning_bets = [b for b in settled if b["status"] in ("Won", "Half Won")]
+    avg_winning_odds = (
+        round(sum(b["bookie_odds"] for b in winning_bets) / len(winning_bets), 2)
+        if winning_bets
+        else 0.0
+    )
+
+    # 1. Breakdown by Bet Type
+    by_bet_type = []
+    for cat in BET_TYPE_CATEGORIES:
+        cat_items = [b for b in enriched if b["bet_type"] == cat]
+        if cat_items:
+            by_bet_type.append(_aggregate_group(cat, cat_items))
+    by_bet_type.sort(key=lambda x: (x["profit"], x["roi_pct"], x["settled_bets"]), reverse=True)
+
+    # 2. Breakdown by Odds Range
+    by_odds_range = []
+    for label, low, high in ODDS_BUCKETS:
+        bucket_items = [b for b in enriched if low <= b["bookie_odds"] < high]
+        if bucket_items:
+            by_odds_range.append(_aggregate_group(label, bucket_items, {"min_odds": low, "max_odds": high}))
+
+    # 3. Breakdown by League
+    by_league = []
+    league_codes_seen = list(LEAGUES.keys()) + [
+        c for c in {b["league_code"] for b in enriched} if c not in LEAGUES
+    ]
+    for code in league_codes_seen:
+        lg_items = [b for b in enriched if b["league_code"] == code]
+        if lg_items:
+            lg_name = LEAGUES.get(code, {}).get("short_name", code)
+            by_league.append(_aggregate_group(lg_name, lg_items, {"league_code": code}))
+    by_league.sort(key=lambda x: (x["profit"], x["roi_pct"]), reverse=True)
+
+    # 4. Breakdown by Model Edge (EV %)
+    by_ev_bucket = []
+    for label, low, high in EV_BUCKETS:
+        ev_items = [
+            b for b in enriched if b.get("ev_pct") is not None and low <= b["ev_pct"] < high
+        ]
+        if ev_items:
+            by_ev_bucket.append(_aggregate_group(label, ev_items))
+    no_ev_items = [b for b in enriched if b.get("ev_pct") is None]
+    if no_ev_items:
+        by_ev_bucket.append(_aggregate_group("Unrated (No Model Odds)", no_ev_items))
+
+    # Cumulative Bankroll / Profit Progression (chronological order of settled bets)
+    chronological = sorted(settled, key=lambda b: (b["date"], b["id"]))
+    running_profit = 0.0
+    running_staked = 0.0
+    equity_curve = []
+    for idx, b in enumerate(chronological, start=1):
+        running_profit = round(running_profit + b["profit"], 2)
+        running_staked = round(running_staked + b["stake"], 2)
+        equity_curve.append(
+            {
+                "step": idx,
+                "date": b["date"],
+                "matchup": b["matchup"],
+                "selection": b["selection"],
+                "status": b["status"],
+                "profit": b["profit"],
+                "cumulative_profit": running_profit,
+                "cumulative_roi_pct": round((running_profit / running_staked) * 100.0, 2)
+                if running_staked > 0
+                else 0.0,
+            }
+        )
+
+    settled_bet_types = [g for g in by_bet_type if g["settled_bets"] > 0]
+    best_bet_type = max(settled_bet_types, key=lambda x: (x["profit"], x["roi_pct"])) if settled_bet_types else None
+    worst_bet_type = min(settled_bet_types, key=lambda x: (x["profit"], x["roi_pct"])) if settled_bet_types else None
+
+    settled_odds_buckets = [g for g in by_odds_range if g["settled_bets"] > 0]
+    best_odds_bucket = max(settled_odds_buckets, key=lambda x: (x["roi_pct"], x["profit"])) if settled_odds_buckets else None
+
+    settled_leagues = [g for g in by_league if g["settled_bets"] > 0]
+    best_league = max(settled_leagues, key=lambda x: (x["profit"], x["roi_pct"])) if settled_leagues else None
+
+    # Actionable insights generation
+    insights = []
+    if best_bet_type:
+        insights.append(
+            f"Top Market: '{best_bet_type['category']}' is your most profitable bet type with "
+            f"${best_bet_type['profit']:+.2f} net profit ({best_bet_type['roi_pct']:+.1f}% ROI, "
+            f"{best_bet_type['win_rate_pct']}% win rate across {best_bet_type['settled_bets']} settled bets)."
+        )
+    if best_odds_bucket:
+        insights.append(
+            f"Sweet-Spot Odds: '{best_odds_bucket['category']}' yields the strongest return at "
+            f"{best_odds_bucket['roi_pct']:+.1f}% ROI (${best_odds_bucket['profit']:+.2f} profit, "
+            f"{best_odds_bucket['win_rate_pct']}% actual win rate vs {best_odds_bucket['model_win_rate_pct']}% model expected)."
+        )
+    if best_league:
+        insights.append(
+            f"Best League: {best_league['category']} leads with ${best_league['profit']:+.2f} profit "
+            f"and {best_league['roi_pct']:+.1f}% ROI ({best_league['wins']}W-{best_league['losses']}L)."
+        )
+    if overall["settled_bets"] >= 3:
+        diff = overall["calibration_diff_pct"]
+        if abs(diff) <= 3.5:
+            insights.append(
+                f"Model Calibration: Well-calibrated! Your actual win rate ({overall['win_rate_pct']}%) "
+                f"tracks closely with the Poisson model's expected win probability ({overall['model_win_rate_pct']}%)."
+            )
+        elif diff > 3.5:
+            insights.append(
+                f"Model Calibration: Outperforming expectations by {diff:+.1f}% "
+                f"({overall['win_rate_pct']}% actual win rate vs {overall['model_win_rate_pct']}% model expected)."
+            )
+        else:
+            insights.append(
+                f"Model Calibration: Running {diff:+.1f}% below expected win rate "
+                f"({overall['win_rate_pct']}% actual vs {overall['model_win_rate_pct']}% model expected) — check if longshot variance or negative-EV bets are dragging results."
+            )
+
+    summary = {
+        **overall,
+        "total_staked_all": round(sum(b["stake"] for b in enriched), 2),
+        "avg_winning_odds": avg_winning_odds,
+        "best_bet_type": best_bet_type,
+        "worst_bet_type": worst_bet_type,
+        "best_odds_bucket": best_odds_bucket,
+        "best_league": best_league,
+        "insights": insights,
+    }
+
+    return {
+        "summary": summary,
+        "by_bet_type": by_bet_type,
+        "by_odds_range": by_odds_range,
+        "by_league": by_league,
+        "by_ev_bucket": by_ev_bucket,
+        "equity_curve": equity_curve,
+    }
+
+
+def get_sample_bets() -> list:
+    return [
+        {
+            "date": "2026-10-18",
+            "league_code": "E0",
+            "matchup": "Arsenal vs Bournemouth",
+            "bet_type": "Home Win (1)",
+            "selection": "Arsenal Win (1)",
+            "bookie_odds": 1.48,
+            "fair_odds": 1.38,
+            "stake": 45.0,
+            "status": "Won",
+        },
+        {
+            "date": "2026-10-18",
+            "league_code": "SP1",
+            "matchup": "Barcelona vs Sevilla",
+            "bet_type": "Over 2.5 Goals",
+            "selection": "Over 2.5 Goals",
+            "bookie_odds": 1.72,
+            "fair_odds": 1.56,
+            "stake": 40.0,
+            "status": "Won",
+        },
+        {
+            "date": "2026-10-19",
+            "league_code": "I1",
+            "matchup": "Inter vs Napoli",
+            "bet_type": "BTTS - No",
+            "selection": "BTTS - No",
+            "bookie_odds": 2.08,
+            "fair_odds": 1.86,
+            "stake": 35.0,
+            "status": "Won",
+        },
+        {
+            "date": "2026-10-20",
+            "league_code": "E0",
+            "matchup": "Liverpool vs Chelsea",
+            "bet_type": "BTTS - Yes",
+            "selection": "BTTS - Yes",
+            "bookie_odds": 1.66,
+            "fair_odds": 1.58,
+            "stake": 30.0,
+            "status": "Won",
+        },
+        {
+            "date": "2026-10-22",
+            "league_code": "I1",
+            "matchup": "Juventus vs Lazio",
+            "bet_type": "Under 2.5 Goals",
+            "selection": "Under 2.5 Goals",
+            "bookie_odds": 1.85,
+            "fair_odds": 1.71,
+            "stake": 35.0,
+            "status": "Won",
+        },
+        {
+            "date": "2026-10-24",
+            "league_code": "SP1",
+            "matchup": "Real Madrid vs Villarreal",
+            "bet_type": "Asian Handicap",
+            "selection": "AH Real Madrid -1.25",
+            "bookie_odds": 1.98,
+            "fair_odds": 1.82,
+            "stake": 38.0,
+            "status": "Won",
+        },
+        {
+            "date": "2026-10-25",
+            "league_code": "E0",
+            "matchup": "Brighton vs Wolves",
+            "bet_type": "Draw (X)",
+            "selection": "Draw (X)",
+            "bookie_odds": 3.80,
+            "fair_odds": 3.45,
+            "stake": 18.0,
+            "status": "Lost",
+        },
+        {
+            "date": "2026-10-26",
+            "league_code": "SP1",
+            "matchup": "Atletico Madrid vs Betis",
+            "bet_type": "Under 2.5 Goals",
+            "selection": "Under 2.5 Goals",
+            "bookie_odds": 1.92,
+            "fair_odds": 1.76,
+            "stake": 32.0,
+            "status": "Won",
+        },
+        {
+            "date": "2026-10-27",
+            "league_code": "I1",
+            "matchup": "Milan vs Roma",
+            "bet_type": "Away Win (2)",
+            "selection": "Roma Win (2)",
+            "bookie_odds": 3.60,
+            "fair_odds": 3.30,
+            "stake": 20.0,
+            "status": "Lost",
+        },
+        {
+            "date": "2026-10-28",
+            "league_code": "E0",
+            "matchup": "Aston Villa vs Fulham",
+            "bet_type": "Home Win (1)",
+            "selection": "Aston Villa Win (1)",
+            "bookie_odds": 1.95,
+            "fair_odds": 1.78,
+            "stake": 36.0,
+            "status": "Won",
+        },
+        {
+            "date": "2026-10-29",
+            "league_code": "I1",
+            "matchup": "Atalanta vs Fiorentina",
+            "bet_type": "Over 2.5 Goals",
+            "selection": "Over 2.5 Goals",
+            "bookie_odds": 1.88,
+            "fair_odds": 1.74,
+            "stake": 30.0,
+            "status": "Lost",
+        },
+        {
+            "date": "2026-10-30",
+            "league_code": "SP1",
+            "matchup": "Sociedad vs Athletic Club",
+            "bet_type": "BTTS - No",
+            "selection": "BTTS - No",
+            "bookie_odds": 1.96,
+            "fair_odds": 1.79,
+            "stake": 34.0,
+            "status": "Won",
+        },
+    ]
+
+
 class AppRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
@@ -979,10 +1538,46 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 200, get_all_leagues_stats(include_last_season=inc_last)
             )
             return
+        if parsed.path == "/api/bets":
+            bets = load_bets()
+            self._send_json(
+                200,
+                {
+                    "bets": bets,
+                    "analytics": analyze_bet_history(bets),
+                },
+            )
+            return
         return super().do_GET()
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/api/bets":
+            content_length = int(self.headers.get("Content-Length", 0))
+            raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            try:
+                payload = json.loads(raw_body.decode("utf-8"))
+                bets = load_bets()
+                if payload.get("action") == "load_samples":
+                    sample_records = [enrich_bet_record(s) for s in get_sample_bets()]
+                    bets.extend(sample_records)
+                elif isinstance(payload.get("bets"), list):
+                    for item in payload["bets"]:
+                        bets.insert(0, enrich_bet_record(item))
+                else:
+                    new_bet = enrich_bet_record(payload)
+                    bets.insert(0, new_bet)
+                saved = save_bets(bets)
+                self._send_json(
+                    200,
+                    {
+                        "bets": saved,
+                        "analytics": analyze_bet_history(saved),
+                    },
+                )
+            except Exception as exc:
+                self._send_json(400, {"error": str(exc)})
+            return
         if parsed.path == "/api/update-data":
             qs = parse_qs(parsed.query)
             inc_last = _parse_bool(
@@ -1014,6 +1609,63 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json(200, round_data)
             except Exception as exc:
                 self._send_json(400, {"error": str(exc)})
+            return
+        self._send_json(404, {"error": "Endpoint not found"})
+
+    def do_PUT(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/bets":
+            content_length = int(self.headers.get("Content-Length", 0))
+            raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            try:
+                payload = json.loads(raw_body.decode("utf-8"))
+                bet_id = str(payload.get("id") or "").strip()
+                if not bet_id:
+                    self._send_json(400, {"error": "Missing bet id"})
+                    return
+                bets = load_bets()
+                updated = False
+                for idx, b in enumerate(bets):
+                    if b["id"] == bet_id:
+                        merged = {**b, **payload}
+                        bets[idx] = enrich_bet_record(merged)
+                        updated = True
+                        break
+                if not updated:
+                    self._send_json(404, {"error": "Bet not found"})
+                    return
+                saved = save_bets(bets)
+                self._send_json(
+                    200,
+                    {
+                        "bets": saved,
+                        "analytics": analyze_bet_history(saved),
+                    },
+                )
+            except Exception as exc:
+                self._send_json(400, {"error": str(exc)})
+            return
+        self._send_json(404, {"error": "Endpoint not found"})
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/bets":
+            qs = parse_qs(parsed.query)
+            clear_all = _parse_bool(qs.get("all", ["false"])[0], default=False)
+            bet_id = (qs.get("id", [""])[0] or "").strip()
+            bets = load_bets()
+            if clear_all:
+                bets = []
+            elif bet_id:
+                bets = [b for b in bets if b["id"] != bet_id]
+            saved = save_bets(bets)
+            self._send_json(
+                200,
+                {
+                    "bets": saved,
+                    "analytics": analyze_bet_history(saved),
+                },
+            )
             return
         self._send_json(404, {"error": "Endpoint not found"})
 

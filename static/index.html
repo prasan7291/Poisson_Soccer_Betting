@@ -845,6 +845,277 @@
       background-color: rgba(255, 255, 255, 0.07);
       color: var(--text);
     }
+
+    /* Main App View Tabs */
+    .main-nav-tabs {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 0.85rem;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-tab-group {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .main-tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.65rem 1.2rem;
+      border-radius: 0.6rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+      border: 1px solid var(--panel-border);
+      background-color: rgba(30, 41, 59, 0.75);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .main-tab-btn:hover {
+      color: var(--text);
+      border-color: #64748b;
+    }
+
+    .main-tab-btn.active {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(56, 189, 248, 0.18));
+      color: #f8fafc;
+      border-color: var(--accent);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.2);
+    }
+
+    .tab-badge {
+      background-color: rgba(16, 185, 129, 0.25);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      padding: 0.1rem 0.48rem;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .view-pane {
+      display: none;
+    }
+
+    .view-pane.active {
+      display: block;
+    }
+
+    /* Analytics & Bet Tracker Styles */
+    .bet-form-panel {
+      background-color: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.75rem;
+      padding: 1.15rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .bet-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+      align-items: end;
+      margin-top: 0.75rem;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .form-field label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .form-field input,
+    .form-field select {
+      background-color: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.42rem;
+      padding: 0.48rem 0.65rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      width: 100%;
+    }
+
+    .form-field input:focus,
+    .form-field select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .kpi-card {
+      background: linear-gradient(160deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.92));
+      border: 1px solid var(--panel-border);
+      border-radius: 0.75rem;
+      padding: 1rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .kpi-card .kpi-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .kpi-card .kpi-value {
+      font-size: 1.55rem;
+      font-weight: 800;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--text);
+    }
+
+    .kpi-card .kpi-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .insights-box {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(56, 189, 248, 0.08));
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .insights-box h3 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #34d399;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .insights-list {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 0.5rem 1.25rem;
+    }
+
+    .insights-list li {
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      position: relative;
+      padding-left: 1.1rem;
+    }
+
+    .insights-list li::before {
+      content: "▸";
+      position: absolute;
+      left: 0;
+      color: #34d399;
+      font-weight: 700;
+    }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(540px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .roi-pill {
+      display: inline-block;
+      padding: 0.14rem 0.45rem;
+      border-radius: 0.3rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .roi-pill.pos {
+      background-color: rgba(16, 185, 129, 0.18);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .roi-pill.neg {
+      background-color: rgba(239, 68, 68, 0.18);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+
+    .roi-pill.neutral {
+      background-color: rgba(148, 163, 184, 0.15);
+      color: #cbd5e1;
+    }
+
+    .status-select {
+      background-color: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      border-radius: 0.35rem;
+      padding: 0.24rem 0.45rem;
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .status-select.Won, .status-select.Half-Won {
+      border-color: rgba(16, 185, 129, 0.55);
+      color: #34d399;
+    }
+
+    .status-select.Lost, .status-select.Half-Lost {
+      border-color: rgba(239, 68, 68, 0.55);
+      color: #f87171;
+    }
+
+    .status-select.Push {
+      border-color: rgba(245, 158, 11, 0.55);
+      color: #fbbf24;
+    }
+
+    .status-select.Pending {
+      border-color: rgba(56, 189, 248, 0.55);
+      color: #38bdf8;
+    }
+
+    .log-pick-btn {
+      margin-top: 0.35rem;
+      width: 100%;
+      padding: 0.42rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border-radius: 0.42rem;
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      background-color: rgba(16, 185, 129, 0.14);
+      color: #34d399;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .log-pick-btn:hover {
+      background-color: rgba(16, 185, 129, 0.28);
+      color: #ffffff;
+    }
   </style>
 </head>
 <body>
@@ -852,7 +1123,7 @@
     <header>
       <div class="title-group">
         <h1>Poisson &amp; Kelly Multi-League Soccer Betting</h1>
-        <p>Premier League (E0) • La Liga (SP1) • Serie A (I1) — Poisson, Asian Handicap &amp; Kelly Criterion</p>
+        <p>Premier League (E0) • La Liga (SP1) • Serie A (I1) — Poisson, Asian Handicap, Kelly Criterion &amp; Bet Analytics</p>
       </div>
       <button id="update-btn" class="btn btn-primary" type="button">
         <span class="spinner"></span>
@@ -862,12 +1133,32 @@
 
     <div id="status-banner" class="banner"></div>
 
+    <!-- Main View Navigation Tabs -->
+    <div class="main-nav-tabs">
+      <div class="nav-tab-group">
+        <button type="button" class="main-tab-btn active" id="nav-tab-modelling" data-target="view-modelling">
+          <span>Match Modelling &amp; Kelly Engine</span>
+        </button>
+        <button type="button" class="main-tab-btn" id="nav-tab-analytics" data-target="view-analytics">
+          <span>Betting Tracker &amp; Performance Analytics</span>
+          <span class="tab-badge" id="bet-count-badge">0</span>
+        </button>
+      </div>
+      <div class="toolbar-actions">
+        <button type="button" class="btn btn-secondary" id="log-top3-all-btn" title="Log all Top 3 Ranked Matchups into your Betting Tracker">
+          + Log Top 3 Picks to Tracker
+        </button>
+      </div>
+    </div>
+
+    <!-- VIEW 1: MATCH MODELLING & KELLY ENGINE -->
+    <div id="view-modelling" class="view-pane active">
     <!-- Bankroll & Kelly Settings -->
     <div class="bankroll-bar">
       <div class="bankroll-inputs">
         <div class="input-group">
           <label for="bankroll-input">Bankroll ($)</label>
-          <input id="bankroll-input" type="number" min="10" step="50" value="1000" style="width: 115px;" />
+          <input id="bankroll-input" type="number" min="0.01" step="any" value="1000" style="width: 115px;" />
         </div>
         <div class="input-group">
           <label for="kelly-select">Kelly Fraction</label>
@@ -950,6 +1241,140 @@
         <div id="away-table-wrapper"></div>
       </div>
     </div>
+    </div> <!-- /#view-modelling -->
+
+    <!-- VIEW 2: BETTING TRACKER & PERFORMANCE ANALYTICS -->
+    <div id="view-analytics" class="view-pane">
+      <!-- Log New Bet Form -->
+      <div class="bet-form-panel">
+        <div class="section-header" style="margin-bottom: 0.4rem;">
+          <div>
+            <h2 class="section-title">Log Placed Bet &amp; Track Model Performance</h2>
+            <p style="font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem;">
+              Enter your placed bets manually below or click <strong>"Log to Bet Tracker"</strong> directly on any Top 3 Ranked Pick in the Modelling tab.
+            </p>
+          </div>
+          <div class="toolbar-actions">
+            <button type="button" class="btn btn-secondary" id="load-sample-bets-btn">Load Sample Bet History (12 Bets)</button>
+            <button type="button" class="btn btn-secondary" id="clear-all-bets-btn" style="color:#fca5a5;border-color:rgba(239,68,68,0.35);">Clear All Bets</button>
+          </div>
+        </div>
+
+        <form id="add-bet-form" class="bet-form-grid">
+          <div class="form-field">
+            <label for="bet-date-input">Date</label>
+            <input type="date" id="bet-date-input" required />
+          </div>
+          <div class="form-field">
+            <label for="bet-league-input">League</label>
+            <select id="bet-league-input">
+              <option value="E0">Premier League (E0)</option>
+              <option value="SP1">La Liga (SP1)</option>
+              <option value="I1">Serie A (I1)</option>
+            </select>
+          </div>
+          <div class="form-field" style="grid-column: span 2;">
+            <label for="bet-matchup-input">Matchup (Home vs Away)</label>
+            <input type="text" id="bet-matchup-input" list="round-matchups-datalist" placeholder="e.g. Arsenal vs Chelsea" required />
+            <datalist id="round-matchups-datalist"></datalist>
+          </div>
+          <div class="form-field">
+            <label for="bet-type-input">Bet Type / Market</label>
+            <select id="bet-type-input">
+              <option value="Home Win (1)">Home Win (1)</option>
+              <option value="Draw (X)">Draw (X)</option>
+              <option value="Away Win (2)">Away Win (2)</option>
+              <option value="Over 2.5 Goals">Over 2.5 Goals</option>
+              <option value="Under 2.5 Goals">Under 2.5 Goals</option>
+              <option value="BTTS - Yes">BTTS - Yes</option>
+              <option value="BTTS - No">BTTS - No</option>
+              <option value="Asian Handicap">Asian Handicap</option>
+              <option value="Correct Score / Other">Correct Score / Other</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="bet-selection-input">Selection / Line</label>
+            <input type="text" id="bet-selection-input" placeholder="e.g. Arsenal Win (1) or AH -1.25" required />
+          </div>
+          <div class="form-field">
+            <label for="bet-odds-input">Bookie Odds</label>
+            <input type="number" id="bet-odds-input" step="any" min="1.01" value="1.95" required />
+          </div>
+          <div class="form-field">
+            <label for="bet-fair-odds-input" title="Optional: Enter the Poisson Model's Fair Odds to track Model Edge (EV %) and Calibration">Model Fair Odds</label>
+            <input type="number" id="bet-fair-odds-input" step="any" min="1.01" placeholder="e.g. 1.78 (Optional)" />
+          </div>
+          <div class="form-field">
+            <label for="bet-stake-input">Stake ($)</label>
+            <input type="number" id="bet-stake-input" step="any" min="0.01" placeholder="Any amount, e.g. 12.35" value="35.00" required />
+          </div>
+          <div class="form-field">
+            <label for="bet-status-input">Result / Status</label>
+            <select id="bet-status-input">
+              <option value="Won">Won</option>
+              <option value="Lost">Lost</option>
+              <option value="Push">Push (Void/Refund)</option>
+              <option value="Half Won">Half Won (AH +0.25/-0.75)</option>
+              <option value="Half Lost">Half Lost (AH -0.25/+0.75)</option>
+              <option value="Pending">Pending (Unsettled)</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <button type="submit" class="btn btn-primary" style="width: 100%; height: 36px;">+ Add Bet</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Automated Pattern Insights & Model Calibration Box -->
+      <div id="analytics-insights-wrapper"></div>
+
+      <!-- KPI Summary Cards -->
+      <div id="analytics-kpi-grid" class="kpi-grid"></div>
+
+      <!-- 4 Breakdown Tables: By Bet Type, By Odds Range, By League, By Model Edge -->
+      <div class="analytics-grid">
+        <div class="table-card">
+          <div class="table-header">
+            <h3>1. Performance by Bet Type / Market</h3>
+            <span class="table-subtitle">Ranked by Net Profit &amp; ROI %</span>
+          </div>
+          <div id="breakdown-bet-type-wrapper"></div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-header">
+            <h3>2. Performance by Bookmaker Odds Range</h3>
+            <span class="table-subtitle">Actual Win % vs Model Expected Win %</span>
+          </div>
+          <div id="breakdown-odds-range-wrapper"></div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-header">
+            <h3>3. Performance by League</h3>
+            <span class="table-subtitle">Premier League (E0) • La Liga (SP1) • Serie A (I1)</span>
+          </div>
+          <div id="breakdown-league-wrapper"></div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-header">
+            <h3>4. Performance by Model Edge (Expected Value %)</h3>
+            <span class="table-subtitle">Verifies if higher +EV picks produce higher ROI</span>
+          </div>
+          <div id="breakdown-ev-wrapper"></div>
+        </div>
+      </div>
+
+      <!-- Full Logged Bets History Table -->
+      <div class="table-card" style="margin-bottom: 2rem;">
+        <div class="table-header">
+          <h3>Logged Bets History &amp; Settlement Tracker</h3>
+          <span class="table-subtitle" id="bet-history-subtitle">Change status inline to settle pending bets</span>
+        </div>
+        <div id="bet-history-table-wrapper"></div>
+      </div>
+    </div> <!-- /#view-analytics -->
   </div>
 
   <script>
@@ -1178,7 +1603,10 @@
       `;
     }
 
+    let lastTop3Bets = [];
+
     function renderTop3Bets(top3, bankroll) {
+      lastTop3Bets = top3 || [];
       if (!top3 || top3.length === 0) {
         top3BetsContainer.innerHTML = `
           <div class="empty-msg">
@@ -1192,7 +1620,7 @@
         <div class="top3-grid">
           ${top3
             .map(
-              (pick) => `
+              (pick, pIdx) => `
               <div class="bet-pick-card rank-${pick.rank}">
                 <div class="pick-header">
                   <span class="pick-rank-badge">Rank #${pick.rank} Best Bet (Match #${pick.match_index})</span>
@@ -1231,12 +1659,25 @@
                   </div>
                   <div class="stake-amt">$${pick.recommended_stake.toFixed(2)}</div>
                 </div>
+
+                <button type="button" class="log-pick-btn" data-pick-idx="${pIdx}">
+                  + Log Pick to Bet Tracker ($${pick.recommended_stake > 0 ? pick.recommended_stake.toFixed(2) : "25.00"})
+                </button>
               </div>
             `
             )
             .join("")}
         </div>
       `;
+
+      top3BetsContainer.querySelectorAll(".log-pick-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          const pIdx = Number(e.currentTarget.dataset.pickIdx);
+          const pick = lastTop3Bets[pIdx];
+          if (!pick) return;
+          await logModelPickToTracker(pick);
+        });
+      });
     }
 
     function updateOddsEvaluationInPlace(results) {
@@ -1901,7 +2342,491 @@
       }
     });
 
+    // =========================================================================
+    // BETTING TRACKER & PERFORMANCE ANALYTICS
+    // =========================================================================
+    const navTabModelling = document.getElementById("nav-tab-modelling");
+    const navTabAnalytics = document.getElementById("nav-tab-analytics");
+    const viewModelling = document.getElementById("view-modelling");
+    const viewAnalytics = document.getElementById("view-analytics");
+    const betCountBadge = document.getElementById("bet-count-badge");
+    const logTop3AllBtn = document.getElementById("log-top3-all-btn");
+
+    const addBetForm = document.getElementById("add-bet-form");
+    const betDateInput = document.getElementById("bet-date-input");
+    const betLeagueInput = document.getElementById("bet-league-input");
+    const betMatchupInput = document.getElementById("bet-matchup-input");
+    const roundMatchupsDatalist = document.getElementById("round-matchups-datalist");
+    const betTypeInput = document.getElementById("bet-type-input");
+    const betSelectionInput = document.getElementById("bet-selection-input");
+    const betOddsInput = document.getElementById("bet-odds-input");
+    const betFairOddsInput = document.getElementById("bet-fair-odds-input");
+    const betStakeInput = document.getElementById("bet-stake-input");
+    const betStatusInput = document.getElementById("bet-status-input");
+
+    const loadSampleBetsBtn = document.getElementById("load-sample-bets-btn");
+    const clearAllBetsBtn = document.getElementById("clear-all-bets-btn");
+
+    const analyticsInsightsWrapper = document.getElementById("analytics-insights-wrapper");
+    const analyticsKpiGrid = document.getElementById("analytics-kpi-grid");
+    const breakdownBetTypeWrapper = document.getElementById("breakdown-bet-type-wrapper");
+    const breakdownOddsRangeWrapper = document.getElementById("breakdown-odds-range-wrapper");
+    const breakdownLeagueWrapper = document.getElementById("breakdown-league-wrapper");
+    const breakdownEvWrapper = document.getElementById("breakdown-ev-wrapper");
+    const betHistoryTableWrapper = document.getElementById("bet-history-table-wrapper");
+    const betHistorySubtitle = document.getElementById("bet-history-subtitle");
+
+    // Set default date to today
+    betDateInput.value = new Date().toISOString().slice(0, 10);
+
+    function switchMainView(targetId) {
+      const isAnalytics = targetId === "view-analytics";
+      navTabModelling.classList.toggle("active", !isAnalytics);
+      navTabAnalytics.classList.toggle("active", isAnalytics);
+      viewModelling.classList.toggle("active", !isAnalytics);
+      viewAnalytics.classList.toggle("active", isAnalytics);
+      if (isAnalytics) {
+        updateMatchupsDatalist();
+        loadBetsAndAnalytics();
+      }
+    }
+
+    navTabModelling.addEventListener("click", () => switchMainView("view-modelling"));
+    navTabAnalytics.addEventListener("click", () => switchMainView("view-analytics"));
+
+    function updateMatchupsDatalist() {
+      if (!roundMatchupsDatalist) return;
+      roundMatchupsDatalist.innerHTML = (matchupsState || [])
+        .map((m) => `<option value="${m.home_team} vs ${m.away_team}">${m.league_code}: ${m.home_team} vs ${m.away_team}</option>`)
+        .join("");
+    }
+
+    function formatCurrency(val, showPlus = true) {
+      const n = Number(val || 0);
+      const sign = n > 0 && showPlus ? "+" : n < 0 ? "-" : "";
+      return `${sign}$${Math.abs(n).toFixed(2)}`;
+    }
+
+    function formatRoiPill(roiPct, settledCount) {
+      if (!settledCount) return `<span class="roi-pill neutral">Pending</span>`;
+      const n = Number(roiPct || 0);
+      const cls = n > 0 ? "pos" : n < 0 ? "neg" : "neutral";
+      const sign = n > 0 ? "+" : "";
+      return `<span class="roi-pill ${cls}">${sign}${n.toFixed(1)}%</span>`;
+    }
+
+    function buildBreakdownTableHTML(rows, categoryColLabel) {
+      if (!rows || rows.length === 0) {
+        return `<div class="empty-msg">No bets logged in this breakdown yet. Add your bets above or click "Load Sample Bet History".</div>`;
+      }
+      const bodyHTML = rows
+        .map((r) => {
+          const profitColor = r.profit > 0 ? "#34d399" : r.profit < 0 ? "#f87171" : "var(--text)";
+          const calDiff = Number(r.calibration_diff_pct || 0);
+          const calColor = calDiff >= 0 ? "#34d399" : "#fbbf24";
+          const recordStr = `${r.wins}W-${r.losses}L${r.pushes > 0 ? `-${r.pushes}P` : ""}${r.pending_bets > 0 ? ` (${r.pending_bets} pend)` : ""}`;
+          return `
+            <tr>
+              <td><strong>${r.category}</strong></td>
+              <td class="num">${r.total_bets}</td>
+              <td class="num">${recordStr}</td>
+              <td class="num"><strong>${r.settled_bets > 0 ? r.win_rate_pct.toFixed(1) + "%" : "—"}</strong></td>
+              <td class="num" title="Model Expected Win % vs Actual Win %">${
+                r.settled_bets > 0
+                  ? `${r.model_win_rate_pct.toFixed(1)}% <span style="color:${calColor};font-size:0.74rem;">(${calDiff >= 0 ? "+" : ""}${calDiff.toFixed(1)}%)</span>`
+                  : "—"
+              }</td>
+              <td class="num strength">@${Number(r.avg_odds || 0).toFixed(2)}</td>
+              <td class="num">$${Number(r.staked || 0).toFixed(2)}</td>
+              <td class="num" style="color:${profitColor};font-weight:700;">${formatCurrency(r.profit, true)}</td>
+              <td class="num">${formatRoiPill(r.roi_pct, r.settled_bets)}</td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      return `
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>${categoryColLabel}</th>
+              <th class="num">Bets</th>
+              <th class="num">Record</th>
+              <th class="num">Actual Win %</th>
+              <th class="num">Model Exp % (Diff)</th>
+              <th class="num">Avg Odds</th>
+              <th class="num">Settled Staked</th>
+              <th class="num">Net P/L</th>
+              <th class="num">ROI / Yield</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyHTML}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderBetHistoryTable(bets) {
+      if (!bets || bets.length === 0) {
+        betHistorySubtitle.textContent = "0 bets recorded";
+        betHistoryTableWrapper.innerHTML = `
+          <div class="empty-msg">
+            Your betting log is currently empty. Use the form above, click <strong>"Load Sample Bet History (12 Bets)"</strong> to explore the analytics, or log picks directly from the Top 3 Ranked Matchups.
+          </div>
+        `;
+        return;
+      }
+
+      betHistorySubtitle.textContent = `${bets.length} total bets logged • Change status inline to settle or update any bet`;
+      const statuses = ["Won", "Lost", "Push", "Half Won", "Half Lost", "Pending"];
+
+      const rowsHTML = bets
+        .map((b) => {
+          const profitColor = !b.settled
+            ? "var(--muted)"
+            : b.profit > 0
+            ? "#34d399"
+            : b.profit < 0
+            ? "#f87171"
+            : "#fbbf24";
+          const profitStr = !b.settled ? "Pending" : formatCurrency(b.profit, true);
+          const evStr =
+            b.ev_pct !== null && b.ev_pct !== undefined
+              ? `<span style="color:${b.ev_pct >= 0 ? "#34d399" : "#f87171"};font-weight:700;">${b.ev_pct >= 0 ? "+" : ""}${Number(b.ev_pct).toFixed(1)}%</span>`
+              : `<span style="color:var(--muted);">—</span>`;
+          const fairStr =
+            b.fair_odds !== null && b.fair_odds !== undefined
+              ? `@${Number(b.fair_odds).toFixed(2)} (${Number(b.model_prob_pct || 0).toFixed(1)}%)`
+              : "—";
+
+          const statusOptions = statuses
+            .map((st) => `<option value="${st}" ${st === b.status ? "selected" : ""}>${st}</option>`)
+            .join("");
+
+          const statusCls = String(b.status || "Pending").replace(/\s+/g, "-");
+
+          return `
+            <tr>
+              <td>${b.date}</td>
+              <td><span class="league-pill ${b.league_code || "E0"}">${b.league_short || b.league_code}</span></td>
+              <td><strong>${b.matchup}</strong></td>
+              <td><span style="color:#c4b5fd;font-weight:600;">${b.bet_type}</span></td>
+              <td>${b.selection}</td>
+              <td class="num strength"><strong>@${Number(b.bookie_odds).toFixed(2)}</strong></td>
+              <td class="num strength">${fairStr}</td>
+              <td class="num">${evStr}</td>
+              <td class="num">
+                <input
+                  type="number"
+                  step="any"
+                  min="0.01"
+                  class="bookie-input inline-stake-input"
+                  style="width:82px;margin-top:0;text-align:right;padding:0.22rem 0.4rem;"
+                  data-bet-id="${b.id}"
+                  value="${Number(b.stake).toFixed(2)}"
+                  title="Edit stake amount ($)"
+                />
+              </td>
+              <td>
+                <select class="status-select ${statusCls}" data-bet-id="${b.id}">
+                  ${statusOptions}
+                </select>
+              </td>
+              <td class="num" style="color:${profitColor};font-weight:700;">${profitStr}</td>
+              <td class="num">
+                <button type="button" class="btn-xs danger delete-bet-btn" data-bet-id="${b.id}">Delete</button>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      betHistoryTableWrapper.innerHTML = `
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>League</th>
+              <th>Matchup</th>
+              <th>Bet Type</th>
+              <th>Selection</th>
+              <th class="num">Bookie Odds</th>
+              <th class="num">Model Fair (Prob)</th>
+              <th class="num">Model EV</th>
+              <th class="num">Stake</th>
+              <th>Status / Result</th>
+              <th class="num">Net Profit</th>
+              <th class="num">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHTML}
+          </tbody>
+        </table>
+      `;
+
+      betHistoryTableWrapper.querySelectorAll(".inline-stake-input").forEach((inp) => {
+        inp.addEventListener("change", async (e) => {
+          const id = e.target.dataset.betId;
+          const newStake = parseFloat(e.target.value);
+          if (isNaN(newStake) || newStake <= 0) return;
+          try {
+            const res = await fetch("/api/bets", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: id, stake: newStake }),
+            });
+            const data = await res.json();
+            renderAnalyticsView(data);
+          } catch (err) {
+            statusBanner.className = "banner error";
+            statusBanner.textContent = "Failed to update bet stake: " + err.message;
+          }
+        });
+      });
+
+      betHistoryTableWrapper.querySelectorAll(".status-select").forEach((sel) => {
+        sel.addEventListener("change", async (e) => {
+          const id = e.target.dataset.betId;
+          const newStatus = e.target.value;
+          try {
+            const res = await fetch("/api/bets", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: id, status: newStatus }),
+            });
+            const data = await res.json();
+            renderAnalyticsView(data);
+          } catch (err) {
+            statusBanner.className = "banner error";
+            statusBanner.textContent = "Failed to update bet status: " + err.message;
+          }
+        });
+      });
+
+      betHistoryTableWrapper.querySelectorAll(".delete-bet-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          const id = e.currentTarget.dataset.betId;
+          try {
+            const res = await fetch(`/api/bets?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+            const data = await res.json();
+            renderAnalyticsView(data);
+          } catch (err) {
+            statusBanner.className = "banner error";
+            statusBanner.textContent = "Failed to delete bet: " + err.message;
+          }
+        });
+      });
+    }
+
+    function renderAnalyticsView(data) {
+      const bets = (data && data.bets) || [];
+      const analytics = (data && data.analytics) || {};
+      const s = analytics.summary || {};
+
+      betCountBadge.textContent = String(bets.length);
+
+      // 1. Insights Box
+      const insights = s.insights || [];
+      if (insights.length > 0) {
+        analyticsInsightsWrapper.innerHTML = `
+          <div class="insights-box">
+            <h3>Model Performance &amp; Betting Pattern Takeaways</h3>
+            <ul class="insights-list">
+              ${insights.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </div>
+        `;
+      } else {
+        analyticsInsightsWrapper.innerHTML = "";
+      }
+
+      // 2. KPI Cards
+      const netColor = (s.profit || 0) > 0 ? "#34d399" : (s.profit || 0) < 0 ? "#f87171" : "var(--text)";
+      const roiSign = (s.roi_pct || 0) > 0 ? "+" : "";
+      const calDiff = Number(s.calibration_diff_pct || 0);
+      const bestType = s.best_bet_type
+        ? `${s.best_bet_type.category} (${formatCurrency(s.best_bet_type.profit, true)} / ${s.best_bet_type.roi_pct >= 0 ? "+" : ""}${s.best_bet_type.roi_pct.toFixed(1)}% ROI)`
+        : "No settled bets yet";
+      const bestOdds = s.best_odds_bucket
+        ? `${s.best_odds_bucket.category} (${s.best_odds_bucket.roi_pct >= 0 ? "+" : ""}${s.best_odds_bucket.roi_pct.toFixed(1)}% ROI)`
+        : "No settled bets yet";
+
+      analyticsKpiGrid.innerHTML = `
+        <div class="kpi-card">
+          <span class="kpi-label">Net Profit / Loss &amp; ROI</span>
+          <span class="kpi-value" style="color:${netColor};">${formatCurrency(s.profit || 0, true)}</span>
+          <span class="kpi-sub">ROI / Yield: <strong>${roiSign}${Number(s.roi_pct || 0).toFixed(2)}%</strong> across $${Number(s.staked || 0).toFixed(2)} settled stake</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Settled Win Rate vs Model Expected</span>
+          <span class="kpi-value">${Number(s.win_rate_pct || 0).toFixed(1)}% <span style="font-size:0.95rem;color:var(--muted);">(${s.wins || 0}W-${s.losses || 0}L)</span></span>
+          <span class="kpi-sub">Poisson Expected Win %: <strong>${Number(s.model_win_rate_pct || 0).toFixed(1)}%</strong> (${calDiff >= 0 ? "+" : ""}${calDiff.toFixed(1)}% calibration diff)</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Best Performing Bet Type</span>
+          <span class="kpi-value" style="font-size:1.15rem;color:#34d399;">${s.best_bet_type ? s.best_bet_type.category : "—"}</span>
+          <span class="kpi-sub">${bestType}</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Sweet-Spot Odds Range &amp; Avg Win Odds</span>
+          <span class="kpi-value" style="font-size:1.15rem;color:#fde047;">${s.best_odds_bucket ? s.best_odds_bucket.category : "—"}</span>
+          <span class="kpi-sub">${bestOdds} • Avg Winning Odds: <strong>@${Number(s.avg_winning_odds || 0).toFixed(2)}</strong></span>
+        </div>
+      `;
+
+      // 3. Breakdown Tables
+      breakdownBetTypeWrapper.innerHTML = buildBreakdownTableHTML(analytics.by_bet_type || [], "Bet Type / Market");
+      breakdownOddsRangeWrapper.innerHTML = buildBreakdownTableHTML(analytics.by_odds_range || [], "Bookmaker Odds Bucket");
+      breakdownLeagueWrapper.innerHTML = buildBreakdownTableHTML(analytics.by_league || [], "League");
+      breakdownEvWrapper.innerHTML = buildBreakdownTableHTML(analytics.by_ev_bucket || [], "Model Edge (EV %) Bucket");
+
+      // 4. Bet History Log Table
+      renderBetHistoryTable(bets);
+    }
+
+    async function loadBetsAndAnalytics() {
+      try {
+        const res = await fetch("/api/bets");
+        const data = await res.json();
+        renderAnalyticsView(data);
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Failed to load bet history: " + err.message;
+      }
+    }
+
+    async function logModelPickToTracker(pick) {
+      const payload = {
+        date: new Date().toISOString().slice(0, 10),
+        league_code: pick.league_code || "E0",
+        matchup: pick.matchup_label,
+        market_key: pick.market_key || "",
+        selection: pick.recommended_market,
+        bookie_odds: pick.bookie_odds,
+        fair_odds: pick.fair_odds,
+        model_prob: pick.prob,
+        ev_pct: pick.ev_pct,
+        stake: pick.recommended_stake > 0 ? pick.recommended_stake : 25.0,
+        status: "Pending",
+      };
+      try {
+        const res = await fetch("/api/bets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        renderAnalyticsView(data);
+        statusBanner.className = "banner success";
+        statusBanner.textContent = `Logged "${pick.matchup_label} — ${pick.recommended_market} @ ${pick.bookie_odds.toFixed(2)}" ($${payload.stake.toFixed(2)}) to your Betting Tracker!`;
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Failed to log pick: " + err.message;
+      }
+    }
+
+    logTop3AllBtn.addEventListener("click", async () => {
+      if (!lastTop3Bets || lastTop3Bets.length === 0) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "No Top 3 picks available yet — enter bookmaker odds or click 'Fill Sample Bookie Odds' first.";
+        return;
+      }
+      const batch = lastTop3Bets.map((pick) => ({
+        date: new Date().toISOString().slice(0, 10),
+        league_code: pick.league_code || "E0",
+        matchup: pick.matchup_label,
+        market_key: pick.market_key || "",
+        selection: pick.recommended_market,
+        bookie_odds: pick.bookie_odds,
+        fair_odds: pick.fair_odds,
+        model_prob: pick.prob,
+        ev_pct: pick.ev_pct,
+        stake: pick.recommended_stake > 0 ? pick.recommended_stake : 25.0,
+        status: "Pending",
+      }));
+      try {
+        const res = await fetch("/api/bets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bets: batch }),
+        });
+        const data = await res.json();
+        renderAnalyticsView(data);
+        switchMainView("view-analytics");
+        statusBanner.className = "banner success";
+        statusBanner.textContent = `Logged all ${batch.length} Top Ranked Picks into your Betting Tracker!`;
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Failed to log Top 3 picks: " + err.message;
+      }
+    });
+
+    addBetForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        date: betDateInput.value || new Date().toISOString().slice(0, 10),
+        league_code: betLeagueInput.value || "E0",
+        matchup: betMatchupInput.value.trim(),
+        bet_type: betTypeInput.value,
+        selection: betSelectionInput.value.trim() || betTypeInput.value,
+        bookie_odds: parseFloat(betOddsInput.value) || 1.9,
+        fair_odds: betFairOddsInput.value ? parseFloat(betFairOddsInput.value) : null,
+        stake: parseFloat(betStakeInput.value) || 25.0,
+        status: betStatusInput.value || "Won",
+      };
+      try {
+        const res = await fetch("/api/bets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        renderAnalyticsView(data);
+        betMatchupInput.value = "";
+        betSelectionInput.value = "";
+        betFairOddsInput.value = "";
+        statusBanner.className = "banner success";
+        statusBanner.textContent = `Added bet "${payload.matchup} (${payload.selection})" to tracker and updated analytics.`;
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Failed to add bet: " + err.message;
+      }
+    });
+
+    loadSampleBetsBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/bets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "load_samples" }),
+        });
+        const data = await res.json();
+        renderAnalyticsView(data);
+        statusBanner.className = "banner success";
+        statusBanner.textContent = "Loaded 12 sample bets across Premier League, La Liga, and Serie A into your Betting Tracker.";
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Failed to load sample bets: " + err.message;
+      }
+    });
+
+    clearAllBetsBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/bets?all=true", { method: "DELETE" });
+        const data = await res.json();
+        renderAnalyticsView(data);
+        statusBanner.className = "banner success";
+        statusBanner.textContent = "Cleared all logged bets from your Betting Tracker.";
+      } catch (err) {
+        statusBanner.className = "banner error";
+        statusBanner.textContent = "Failed to clear bets: " + err.message;
+      }
+    });
+
     loadStatus();
+    loadBetsAndAnalytics();
   </script>
 </body>
 </html>
